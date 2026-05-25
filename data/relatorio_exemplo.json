@@ -1,0 +1,91 @@
+{
+  "id_relatorio": "GENIA-REL-001",
+  "tipo_relatorio": "Relatório genético simulado",
+  "paciente": {
+    "nome": "Paciente Simulado",
+    "idade": 34,
+    "sexo": "Não informado",
+    "data_emissao": "2026-05-25"
+  },
+  "ancestralidade": {
+    "resumo": "O perfil genético analisado indica uma ancestralidade composta por diferentes origens populacionais, com predominância europeia, seguida por contribuições indígenas americanas, africanas e asiáticas.",
+    "composicao": [
+      {
+        "origem": "Europeia",
+        "percentual": 62.5,
+        "explicacao": "Indica maior similaridade genética com populações de origem europeia."
+      },
+      {
+        "origem": "Indígena americana",
+        "percentual": 18.7,
+        "explicacao": "Indica presença de marcadores genéticos associados a populações originárias das Américas."
+      },
+      {
+        "origem": "Africana",
+        "percentual": 14.3,
+        "explicacao": "Indica contribuição genética associada a populações africanas."
+      },
+      {
+        "origem": "Asiática",
+        "percentual": 4.5,
+        "explicacao": "Indica pequena contribuição genética relacionada a populações asiáticas."
+      }
+    ]
+  },
+  "saude_genetica": [
+    {
+      "tema": "Diabetes tipo 2",
+      "resultado": "Predisposição genética moderada",
+      "nivel_risco": "Moderado",
+      "explicacao_tecnica": "Foram identificadas variantes genéticas associadas ao metabolismo da glicose e à resposta do organismo à insulina.",
+      "explicacao_simples": "O relatório indica que a pessoa pode ter uma chance um pouco maior de desenvolver diabetes tipo 2 ao longo da vida, mas isso não significa que ela terá a doença.",
+      "recomendacao": "Manter alimentação equilibrada, praticar atividade física regularmente e realizar acompanhamento médico preventivo."
+    },
+    {
+      "tema": "Hipertensão arterial",
+      "resultado": "Predisposição genética levemente aumentada",
+      "nivel_risco": "Baixo a moderado",
+      "explicacao_tecnica": "Foram observados marcadores genéticos relacionados à regulação da pressão arterial e ao metabolismo de sódio.",
+      "explicacao_simples": "Existe uma leve tendência genética relacionada à pressão alta, mas hábitos de vida continuam tendo grande influência.",
+      "recomendacao": "Acompanhar a pressão arterial, reduzir excesso de sal e manter rotina de exercícios."
+    },
+    {
+      "tema": "Doença celíaca",
+      "resultado": "Baixa predisposição genética",
+      "nivel_risco": "Baixo",
+      "explicacao_tecnica": "Não foram identificadas combinações genéticas fortemente associadas à doença celíaca.",
+      "explicacao_simples": "O relatório não encontrou sinais genéticos importantes ligados à doença celíaca.",
+      "recomendacao": "Em caso de sintomas gastrointestinais persistentes, procurar avaliação médica."
+    }
+  ],
+  "bem_estar": [
+    {
+      "tema": "Intolerância à lactose",
+      "resultado": "Maior probabilidade de intolerância",
+      "explicacao_tecnica": "Foram identificadas variantes relacionadas à menor persistência da enzima lactase na vida adulta.",
+      "explicacao_simples": "A pessoa pode ter maior chance de sentir desconforto ao consumir leite e derivados.",
+      "recomendacao": "Observar sintomas após consumo de lactose e buscar orientação profissional antes de retirar alimentos da dieta."
+    },
+    {
+      "tema": "Metabolismo da cafeína",
+      "resultado": "Metabolismo lento",
+      "explicacao_tecnica": "Foram identificadas variantes no gene CYP1A2 associadas à metabolização mais lenta da cafeína.",
+      "explicacao_simples": "O organismo pode demorar mais para processar cafeína, aumentando a chance de efeitos como insônia ou agitação.",
+      "recomendacao": "Evitar consumo excessivo de cafeína, principalmente no período da tarde ou noite."
+    },
+    {
+      "tema": "Resposta ao exercício físico",
+      "resultado": "Boa resposta a exercícios de resistência",
+      "explicacao_tecnica": "O perfil genético apresenta marcadores associados à resposta positiva a treinos de resistência e força.",
+      "explicacao_simples": "A pessoa pode responder bem a exercícios como musculação, caminhada intensa e treinos funcionais.",
+      "recomendacao": "Montar uma rotina de exercícios com orientação profissional."
+    }
+  ],
+  "disclaimers": [
+    "Este relatório é simulado e foi criado exclusivamente para fins acadêmicos.",
+    "As informações apresentadas têm caráter educativo e informativo.",
+    "O conteúdo não substitui consulta, diagnóstico ou acompanhamento com profissional de saúde.",
+    "Predisposição genética não significa diagnóstico definitivo.",
+    "Fatores ambientais, hábitos de vida e histórico familiar também influenciam os resultados de saúde."
+  ]
+}
