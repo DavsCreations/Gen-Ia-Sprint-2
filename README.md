@@ -10,7 +10,7 @@
 
 # 🧬 GenIA — Assistente Inteligente para Relatórios Genéticos
 
-## Grupo 48 - Graduação 1TIAOB - 2025/2 - Turma A
+## Grupo 62 - Graduação 1TIAOB - 2025/2 - Turma A
 
 ---
 
@@ -292,7 +292,7 @@ Durante a Sprint 2, foram implementados:
 Link do vídeo:
 
 ```text
-Adicionar link do vídeo não listado após a publicação.
+https://youtu.be/ggvGr4amFOs
 ```
 
 ---
