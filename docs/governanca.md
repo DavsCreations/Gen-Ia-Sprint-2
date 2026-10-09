@@ -74,7 +74,11 @@ O GenIA funciona em três modos, e o fluxo de dados muda em cada um:
 | LLM local (Ollama) | Nada. O modelo roda na mesma máquina |
 | LLM em nuvem (Groq, Gemini) | A pergunta **já mascarada** e os trechos do relatório usados naquela resposta. Não vão: identificação do paciente, identificador de sessão, histórico de conversa |
 
-No modo em nuvem há transferência internacional de dados (art. 33), porque os provedores processam fora do Brasil. Com dados simulados isso não gera risco ao titular. Com dados reais, seria obrigatório um contrato que garanta não retenção e não uso para treino — ou o modo local.
+A versão publicada usa o modo em nuvem com o Gemini (Google), com o raciocínio do modelo desligado. No plano gratuito do Gemini, o Google pode usar o conteúdo enviado para melhorar seus produtos: com dados simulados isso não afeta nenhum titular, mas com dados reais seria obrigatório o plano pago, com contrato, ou um modelo local.
+
+No deploy, o registro de auditoria fica em um Postgres gerenciado (Neon, região `us-east-1`). O que é gravado lá é o que a seção 4 descreve: pseudônimo da sessão, metadados e, só com autorização, o texto das perguntas e respostas.
+
+No modo em nuvem e no registro do deploy há transferência internacional de dados (art. 33), porque os provedores processam fora do Brasil. Com dados simulados isso não gera risco ao titular. Com dados reais, seria obrigatório um contrato que garanta não retenção e não uso para treino — ou o modo local.
 
 ### 2.6 Segurança (art. 46)
 
@@ -133,7 +137,7 @@ Três decisões de projeto sustentam isso:
 | Evento | Consentimento, exclusão de dados, troca pela resposta de reserva | Tabela `eventos` |
 | Consentimento | Pseudônimo, horário, versão do termo, opção de gravar texto | Tabela `consentimentos` |
 
-Implementação em `app/auditoria.py`. Cada registro também sai como uma linha JSON no log da aplicação, que a plataforma de hospedagem coleta.
+Implementação em `app/auditoria.py`. O banco é um arquivo SQLite na execução local e um Postgres gerenciado no deploy, onde várias instâncias da API precisam enxergar os mesmos dados. Cada registro também sai como uma linha JSON no log da aplicação, que a plataforma de hospedagem coleta.
 
 ### 4.2 O que não é registrado
 
@@ -235,7 +239,7 @@ Esta entrega opera com um relatório fictício. Antes de qualquer dado real, ser
 | Relatório de Impacto à Proteção de Dados (art. 38) | Não elaborado |
 | Encarregado (art. 41) e canal de atendimento ao titular | Não definidos |
 | Contrato com o provedor do modelo (não retenção, não treino) ou modelo local | Não aplicável a dados simulados |
-| Criptografia em repouso e registro em banco gerenciado | O registro é um arquivo SQLite local |
+| Contrato com o provedor do banco e escolha de região | No deploy o registro está em um Postgres gerenciado (Neon, `us-east-1`), contratado pelos termos padrão do serviço; com dados reais seria preciso contrato de operador e avaliar a transferência internacional |
 | Controle de acesso à página de monitoramento | Hoje é aberta, por expor só agregados |
 | Revisão por profissional de saúde do conteúdo e das mensagens | Não realizada |
 | Teste com usuários reais e avaliação de vieses | Não realizado |
@@ -248,8 +252,10 @@ Esta entrega opera com um relatório fictício. Antes de qualquer dado real, ser
 - **Direito de correção não implementado** (seção 2.4).
 - **A checagem de fundamentação usa similaridade semântica**, que não detecta toda contradição lógica. As checagens de números e de níveis cobrem os casos mais graves.
 - **Tema ausente com vocabulário do relatório** pode passar pela decisão de cobertura no modo extrativo; a avaliação lista os casos.
-- **O registro não sobrevive ao desligamento do contêiner da API** no deploy: o arquivo SQLite é efêmero. As linhas do log de aplicação permanecem na plataforma, mas consentimentos e interações recomeçam. Uso real exigiria um banco gerenciado.
-- **A qualidade do modelo generativo ainda precisa ser medida com um provedor configurado**; ver seção 8 de `docs/avaliacao.md`.
+- **O registro de auditoria do deploy fica fora do Brasil** (Neon, `us-east-1`). Na execução local ele é um arquivo SQLite na própria máquina.
+- **O modelo de linguagem não é determinístico**, mesmo com temperatura 0: a mesma pergunta gera textos diferentes, embora com o mesmo sentido e as mesmas fontes (similaridade média de 0,948 na avaliação).
+- **O modelo pode acrescentar pontes de senso comum** que não estão no relatório (por exemplo, que pão contém glúten). São afirmações corretas e de baixo risco, mas escapam à regra de usar só o contexto.
+- **A calibração do validador tem margem estreita.** O limiar de apoio por frase (0,50) é o único valor que separa todos os casos de teste; ver `docs/avaliacao.md`, seção 6.
 
 ---
 

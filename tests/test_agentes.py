@@ -194,3 +194,29 @@ def test_fallback_gera_evento_de_monitoramento(llm_simulado):
     eventos = auditoria.listar_eventos()
     assert eventos[0]["tipo"] == "fallback_llm"
     assert auditoria.metricas()["uso_fallback"] == 1
+
+
+def test_citacao_com_duas_fontes_no_mesmo_colchete_e_separada():
+    # O LLM real às vezes escreve "[fonte-a, fonte-b]"; a interface e a auditoria esperam "[fonte-a][fonte-b]".
+    from app.validador import normalizar_citacoes
+
+    texto = "Predisposição moderada [saude:diabetes-tipo-2, saude:hipertensao-arterial]. Sem mudança aqui [avisos:limites-do-relatorio]."
+
+    assert normalizar_citacoes(texto) == (
+        "Predisposição moderada [saude:diabetes-tipo-2][saude:hipertensao-arterial]. "
+        "Sem mudança aqui [avisos:limites-do-relatorio]."
+    )
+
+
+def test_teto_diario_do_llm_leva_ao_modo_extrativo(llm_simulado, monkeypatch):
+    # Protege o custo da chave: depois do teto do dia, o LLM não é mais chamado.
+    monkeypatch.setattr(agentes, "LIMITE_LLM_DIA", 1)
+    chamadas = llm_simulado(BOA, BOA)
+
+    primeira = responder("Tenho risco de diabetes?", sessao="sessao-de-teste")
+    segunda = responder("Tenho risco de diabetes?", sessao="sessao-de-teste")
+
+    assert primeira["modelo"]["modo"] == "llm"
+    assert segunda["modelo"]["modo"] == "extrativo" and segunda["validacao"]["aprovada"]
+    assert len(chamadas) == 1
+    assert auditoria.geracoes_llm_hoje() == 1

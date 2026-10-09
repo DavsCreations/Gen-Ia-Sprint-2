@@ -138,7 +138,8 @@ function Avaliacao() {
   if (erro) return <ErroDeCarga mensagem={erro} aoTentar={recarregar} />;
   if (!dados) return <Esqueleto linhas={5} />;
 
-  const modos = Object.entries(dados).filter(([nome]) => nome !== "antes_dos_ajustes");
+  // Arquivos "antes_*" guardam medições anteriores aos ajustes; a página mostra a versão final.
+  const modos = Object.entries(dados).filter(([nome]) => !nome.startsWith("antes_"));
   const [, principal] = modos.find(([nome]) => nome !== "extrativo") ?? modos[0];
   const original = principal.recuperacao[0];
   const final = principal.recuperacao[principal.recuperacao.length - 1];

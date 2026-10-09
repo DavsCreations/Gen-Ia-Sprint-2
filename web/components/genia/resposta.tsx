@@ -47,14 +47,18 @@ export function TextoComFontes({ texto, fontes }: { texto: string; fontes: { id:
   return (
     <p className="leading-relaxed whitespace-pre-line">
       {partes.map((parte, indice) => {
-        if (indice % 2 === 0) return <span key={indice}>{parte.replace(/\s+([.,;])/g, "$1")}</span>;
+        if (indice % 2 === 0) {
+          // A marca da fonte encosta na palavra anterior: tira o espaço que o modelo deixa antes do colchete.
+          const texto = parte.replace(/\s+([.,;])/g, "$1");
+          return <span key={indice}>{indice < partes.length - 1 ? texto.trimEnd() : texto}</span>;
+        }
         if (!ordem.includes(parte)) ordem.push(parte);
         const fonte = fontes.find((f) => f.id === parte);
         return (
           <Tooltip key={indice}>
             <TooltipTrigger
               render={
-                <sup className="mx-0.5 cursor-help rounded bg-muted px-1 py-px text-[0.65rem] font-medium text-muted-foreground" />
+                <sup className="ml-0.5 cursor-help rounded bg-muted px-1 py-px text-[0.65rem] font-medium text-muted-foreground" />
               }
             >
               {ordem.indexOf(parte) + 1}

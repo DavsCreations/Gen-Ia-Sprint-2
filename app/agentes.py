@@ -17,7 +17,7 @@ import uuid
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from app import auditoria, intencao, llm, prompts, validador
-from app.config import MODELO_EMBEDDING, SCORE_MINIMO, SEMANTICO_SEM_ANCORA, TOP_K
+from app.config import LIMITE_LLM_DIA, MODELO_EMBEDDING, SCORE_MINIMO, SEMANTICO_SEM_ANCORA, TOP_K
 from app.privacidade import mascarar_pii, pseudonimizar
 from app.rag import Trecho, preparar_base_vetorial
 
@@ -184,13 +184,22 @@ def _redigir_e_auditar(rastro: Rastro, mensagens: List[Dict[str, str]], trechos:
             },
         )
 
-    if config.ativo:
+    # Teto diário de uso do LLM: protege o custo da chave quando a aplicação está pública.
+    # Atingido o teto, as respostas passam a ser extrativas até o dia seguinte.
+    if config.ativo and auditoria.geracoes_llm_hoje() >= LIMITE_LLM_DIA > 0:
+        erro_llm = f"teto diário de {LIMITE_LLM_DIA} gerações com LLM atingido"
+        rastro.etapas.append({
+            "agente": "Redator", "duracao_ms": 0,
+            "decisao": "teto diário do LLM atingido; usando resposta extrativa",
+            "detalhes": {"teto": LIMITE_LLM_DIA},
+        })
+    elif config.ativo:
         conversa = list(mensagens)
         for tentativa in (1, 2):
             try:
                 texto = rastro.executar(
                     "Redator",
-                    lambda: llm.gerar(conversa, config, max_tokens=700 if resumo else 500),
+                    lambda: validador.normalizar_citacoes(llm.gerar(conversa, config)),
                     lambda t: {"decisao": f"resposta gerada pelo LLM (tentativa {tentativa})",
                                "modelo": config.modelo, "prompt_versao": prompts.PROMPT_VERSAO},
                 )

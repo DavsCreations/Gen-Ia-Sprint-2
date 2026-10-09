@@ -121,3 +121,27 @@ def test_retencao_apaga_registros_antigos(cliente):
 
     assert auditoria.aplicar_retencao(dias=30) == 1
     assert auditoria.listar_interacoes() == []
+
+
+def test_consultas_sao_traduzidas_para_o_postgres(monkeypatch):
+    # No deploy o registro usa Postgres; as consultas são escritas no dialeto do SQLite.
+    recebidas = []
+
+    class ConexaoFalsa:
+        closed = False
+
+        def execute(self, sql, parametros=None):
+            recebidas.append((sql, parametros))
+
+    monkeypatch.setattr(auditoria, "_abrir_postgres", lambda: ConexaoFalsa())
+    conexao = auditoria._ConexaoPostgres()
+
+    conexao.execute("SELECT * FROM t WHERE a = ? AND b = ?", (1, 2))
+    conexao.execute("INSERT INTO t (a, b) VALUES (:a, :b)", {"a": 1, "b": 2})
+    conexao.execute("SELECT status FROM execucoes")
+
+    assert recebidas == [
+        ("SELECT * FROM t WHERE a = %s AND b = %s", (1, 2)),
+        ("INSERT INTO t (a, b) VALUES (%(a)s, %(b)s)", {"a": 1, "b": 2}),
+        ("SELECT status FROM execucoes", None),
+    ]

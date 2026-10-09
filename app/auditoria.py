@@ -1,8 +1,9 @@
 """
 Registro de auditoria do GenIA (logging estruturado).
 
-Cada interação, execução de pipeline e evento relevante é gravado em SQLite e também
+Cada interação, execução de pipeline e evento relevante é gravado em banco de dados e também
 emitido como uma linha JSON no log da aplicação (stdout), que a plataforma de deploy coleta.
+O banco é um arquivo SQLite na execução local e um Postgres gerenciado no deploy.
 
 O que NÃO é gravado: o identificador original da sessão (apenas o pseudônimo) e dados
 pessoais digitados na pergunta (mascarados antes). O texto da pergunta e da resposta só é
@@ -10,8 +11,10 @@ gravado quando o titular autorizou; sem autorização ficam apenas os metadados.
 """
 import json
 import logging
+import re
 import sqlite3
 import sys
+import threading
 import time
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
@@ -88,8 +91,59 @@ def agora() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
+def usa_postgres() -> bool:
+    return bool(config.URL_BANCO)
+
+
+_postgres: Any = None
+_trava_postgres = threading.RLock()
+
+
+def _abrir_postgres() -> Any:
+    """Conexão única por processo. Cria as tabelas na primeira vez."""
+    global _postgres
+    import psycopg  # importado só quando há banco gerenciado configurado
+    from psycopg.rows import dict_row
+
+    if _postgres is None or _postgres.closed:
+        _postgres = psycopg.connect(config.URL_BANCO, autocommit=True, row_factory=dict_row, connect_timeout=10)
+        esquema = ESQUEMA.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY")
+        for comando in filter(str.strip, esquema.split(";")):
+            _postgres.execute(comando)
+    return _postgres
+
+
+class _ConexaoPostgres:
+    """
+    Dá ao Postgres (psycopg) a mesma interface que o resto do módulo usa com o sqlite3, para
+    que as consultas sejam escritas uma vez só. Converte os marcadores de parâmetro do SQLite
+    ("?" e ":nome") para os do psycopg ("%s" e "%(nome)s") e reabre a conexão quando o banco
+    a encerrou por ociosidade.
+    """
+
+    def execute(self, sql: str, parametros: Any = None):
+        import psycopg
+
+        sql = re.sub(r"(?<![:\w]):(\w+)", r"%(\1)s", sql.replace("?", "%s"))
+        try:
+            return _abrir_postgres().execute(sql, parametros or None)
+        except (psycopg.OperationalError, psycopg.InterfaceError):
+            if _postgres is not None:
+                _postgres.close()
+            return _abrir_postgres().execute(sql, parametros or None)
+
+
 @contextmanager
-def conectar() -> Iterator[sqlite3.Connection]:
+def conectar() -> Iterator[Any]:
+    """
+    Abre o banco do registro de auditoria: Postgres quando DATABASE_URL está definida (deploy,
+    onde várias instâncias da API precisam enxergar os mesmos dados) e SQLite local caso contrário.
+    """
+    if usa_postgres():
+        with _trava_postgres:
+            yield _ConexaoPostgres()
+        return
+
     config.DIR_EXECUCAO.mkdir(parents=True, exist_ok=True)
     conexao = sqlite3.connect(config.CAMINHO_BANCO, timeout=10)
     conexao.row_factory = sqlite3.Row
@@ -195,7 +249,7 @@ def registrar_feedback(trace_id: str, sessao: str, util: bool) -> bool:
         return cursor.rowcount > 0
 
 
-def _interacao(linha: sqlite3.Row) -> Dict[str, Any]:
+def _interacao(linha: Any) -> Dict[str, Any]:
     dados = dict(linha)
     for campo in CAMPOS_JSON:
         dados[campo] = json.loads(dados[campo])
@@ -278,6 +332,16 @@ def listar_eventos(limite: int = 30) -> List[Dict[str, Any]]:
             "SELECT id, criado_em, tipo, detalhe FROM eventos ORDER BY id DESC LIMIT ?", (limite,)
         ).fetchall()
     return [{**dict(linha), "detalhe": json.loads(linha["detalhe"])} for linha in linhas]
+
+
+def geracoes_llm_hoje() -> int:
+    """Quantas respostas e resumos foram escritos pelo LLM hoje (UTC), em todas as sessões."""
+    hoje = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    with conectar() as conexao:
+        linha = conexao.execute(
+            "SELECT COUNT(*) AS total FROM interacoes WHERE criado_em >= ? AND modelo IS NOT NULL", (hoje,)
+        ).fetchone()
+    return int(linha["total"])
 
 
 def metricas() -> Dict[str, Any]:
