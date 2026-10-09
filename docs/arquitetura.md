@@ -25,7 +25,7 @@ Versão final (Sprint 4). A arquitetura da Sprint 2 — relatório em JSON, chun
 │   privacidade.py   (ChromaDB +     (Groq, Gemini,  (embeddings locais            │
 │   (scikit-learn)    TF-IDF)         Ollama)         + regras)                    │
 │                                                                                  │
-│  Registro de auditoria (app/auditoria.py) ── SQLite + log JSON                   │
+│  Registro de auditoria (app/auditoria.py) ── SQLite ou Postgres + log JSON       │
 │  Pipeline de ingestão monitorado (app/pipeline.py)                               │
 └──────────────────────────────────────────────────────────────────────────────────┘
         ▲                                                   ▲
@@ -79,7 +79,7 @@ Sete checagens, nenhuma delas com LLM: fundamentação por frase (similaridade c
 
 ### 3.6 Auditoria e privacidade — `app/auditoria.py`, `app/privacidade.py`
 
-Registro estruturado em SQLite e em log JSON; pseudonimização da sessão; mascaramento de dados pessoais; exportação, exclusão e retenção. Política completa em `docs/governanca.md`.
+Registro estruturado em banco de dados (SQLite local, Postgres gerenciado no deploy) e em log JSON; pseudonimização da sessão; mascaramento de dados pessoais; exportação, exclusão e retenção. Política completa em `docs/governanca.md`.
 
 ### 3.7 Pipeline de ingestão — `app/pipeline.py`
 
@@ -128,12 +128,12 @@ O navegador nunca fala direto com a API: o servidor do front-end repassa as cham
 | Regras para segurança, modelo para o resto | Um classificador treinado com poucos exemplos não é base para decisão de segurança |
 | Modo extrativo | Funciona sem chave, serve de reserva e torna a integração contínua determinística |
 | API em Python e interface em Next.js | Aproveita o ecossistema de IA do Python e os componentes ReUI/Spell UI do React |
-| SQLite para o registro | Sem serviço externo; suficiente para a demonstração |
+| SQLite local e Postgres no deploy | Localmente não exige serviço externo. No deploy a API roda em várias instâncias, e o primeiro teste em produção mostrou o aceite do termo se perdendo entre elas |
 
 ## 5. Limitações
 
 - Um único relatório, simulado e igual para todos os visitantes; não há autenticação.
 - A API usa cerca de 0,8 GB de memória (modelo de embeddings e runtime ONNX), o que exclui hospedagens gratuitas de 512 MB.
-- O registro em SQLite é local à instância: em hospedagem com disco efêmero, ele recomeça a cada reinício.
+- Na execução local o registro é um arquivo SQLite; para rodar mais de uma instância da API é preciso definir `DATABASE_URL`.
 - Não há histórico de conversa: cada pergunta é respondida de forma independente (o que também reduz o dado enviado ao LLM).
 - Não há leitura de PDF: o relatório entra em JSON estruturado, como definido na Sprint 1.

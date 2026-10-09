@@ -25,7 +25,7 @@
 
 | Item | Onde |
 |---|---|
-| Aplicação em deploy | _adicionar o endereço depois do deploy (passo a passo em [docs/operacao.md](docs/operacao.md#5-deploy))_ |
+| Aplicação em deploy | **https://genia-navy.vercel.app** (detalhes em [docs/operacao.md](docs/operacao.md#5-deploy)) |
 | Vídeo da Sprint 4 | _adicionar o link do YouTube (não listado) antes da entrega_ |
 | Política de Governança de IA | [docs/governanca.md](docs/governanca.md) |
 | Avaliação do modelo e validação das respostas | [docs/avaliacao.md](docs/avaliacao.md) |
@@ -109,7 +109,7 @@ Em qualquer resposta, clique em **"Como cheguei a esta resposta"** para ver as e
 | **AI for RPA** — monitoramento de pipelines e automações | Pipeline de ingestão em sete etapas monitoradas. Página de monitoramento. Integração contínua e verificação sintética agendada no GitHub Actions; deploy pela integração da Vercel | [docs/operacao.md](docs/operacao.md) · [tela](docs/evidencias/05-monitoramento.png) |
 | **IA Generativa** — avaliação de qualidade e consistência | 74 perguntas de avaliação, comparação entre cinco configurações, ajustes documentados com antes e depois | [docs/avaliacao.md](docs/avaliacao.md) |
 | **PLN** — validação das respostas | Agente Auditor com sete checagens; reprova, pede reescrita e troca por resposta de reserva | [docs/avaliacao.md](docs/avaliacao.md), seção 6 · [tela](docs/evidencias/04-conversa-salvaguardas.png) |
-| **Front End & Mobile** — deploy | Interface Next.js responsiva, instalável no celular, configurada para deploy na Vercel junto com a API | [docs/operacao.md](docs/operacao.md), seção 5 · [tela](docs/evidencias/08-celular-conversa.png) |
+| **Front End & Mobile** — deploy | Interface Next.js responsiva e instalável no celular, publicada na Vercel junto com a API: https://genia-navy.vercel.app | [docs/operacao.md](docs/operacao.md), seção 5 · [tela](docs/evidencias/08-celular-conversa.png) |
 | **Visão Computacional** | Não utilizada no projeto | — |
 
 ## Resultados da avaliação
@@ -139,7 +139,7 @@ Navegador ──► Next.js (ReUI + Spell UI) ──► API FastAPI
               e classifica    (ChromaDB +      ao contexto    pede reescrita ou
               a intenção      TF-IDF)                         usa a reserva
                                               │
-                              Registro de auditoria (SQLite + log JSON)
+                              Registro de auditoria (banco de dados + log JSON)
 ```
 
 Quatro agentes com papéis separados: quem escreve a resposta não é quem a aprova. Cada um registra o que decidiu, e esse rastro alimenta a explicabilidade e o logging. Detalhes em [docs/arquitetura.md](docs/arquitetura.md).
@@ -152,10 +152,10 @@ Quatro agentes com papéis separados: quem escreve a resposta não é quem a apr
 | Recuperação | ChromaDB, embeddings multilíngues (`paraphrase-multilingual-MiniLM-L12-v2` via fastembed/ONNX), TF-IDF (scikit-learn) |
 | Classificação de intenção | scikit-learn (regressão logística sobre embeddings) e regras |
 | Geração | LLM por API compatível com OpenAI — Groq, Gemini ou Ollama local; modo extrativo sem LLM |
-| API | FastAPI, SQLite |
+| API | FastAPI; registro de auditoria em SQLite (local) ou Postgres gerenciado (deploy) |
 | Interface | Next.js 16, React 19, Tailwind CSS 4, shadcn/ui, ReUI, Spell UI |
 | Automação | GitHub Actions, pytest |
-| Deploy | Vercel (front-end e API em contêiner) |
+| Deploy | Vercel (front-end e API em contêiner), Neon Postgres |
 
 ---
 
@@ -179,7 +179,7 @@ Gen-Ia-Sprint-2
 ├── automacao/               verificação sintética de produção
 ├── data/                    relatório simulado, glossário, exemplos de intenção
 ├── docs/                    governança, avaliação, operação, arquitetura, riscos, evidências
-├── tests/                   45 testes automatizados
+├── tests/                   46 testes automatizados
 ├── web/                     interface (Next.js)
 ├── .github/workflows/       integração contínua e monitoramento
 ├── Dockerfile               imagem da API
@@ -224,7 +224,7 @@ Sem configuração, o GenIA responde no **modo extrativo**, com frases do própr
 ## 4. Testes, avaliação e automações
 
 ```bash
-python -m pytest -q                              # 45 testes
+python -m pytest -q                              # 46 testes
 python -m app.pipeline                           # pipeline de ingestão, etapa por etapa
 python -m avaliacao.executar_avaliacao           # avaliação completa; regenera docs/avaliacao.md
 python automacao/verificar_producao.py http://localhost:3000
@@ -233,7 +233,7 @@ python -m app.main                               # conversa pelo terminal
 
 ## 5. Deploy
 
-Front-end e API são publicados juntos na Vercel, a partir do `vercel.json`. Passo a passo em [docs/operacao.md](docs/operacao.md#5-deploy).
+Front-end e API estão publicados juntos na Vercel, a partir do `vercel.json`, em https://genia-navy.vercel.app. Passo a passo em [docs/operacao.md](docs/operacao.md#5-deploy).
 
 ---
 

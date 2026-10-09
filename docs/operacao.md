@@ -56,7 +56,7 @@ A página se atualiza sozinha a cada 20 segundos.
 |---|---|---|---|
 | Integração contínua | `.github/workflows/ci.yml` | Push e pull request | API: pipeline de ingestão, testes e avaliação com critérios mínimos. Front-end: lint e build |
 | Monitoramento de produção | `.github/workflows/monitoramento.yml` | A cada 6 horas e sob demanda | Roda a verificação sintética; se falhar, abre ou atualiza uma issue; quando volta a passar, fecha |
-| Deploy | `vercel.json` + integração da Vercel com o GitHub | Push | Constrói e publica juntos o front-end (`web/`) e a API (contêiner do `Dockerfile`). O build da API roda o pipeline de ingestão: relatório inválido derruba o build, não a produção |
+| Deploy | `vercel.json` + `vercel deploy --prod` | Sob demanda, pela linha de comando | Constrói e publica juntos o front-end (`web/`) e a API (contêiner do `Dockerfile`). O build da API roda o pipeline de ingestão: relatório inválido derruba o build, não a produção |
 | Verificação sintética | `automacao/verificar_producao.py` | Chamada pelo monitoramento; pode ser rodada à mão | Percorre saúde → consentimento → três perguntas → limpeza |
 
 ### 2.1 Verificação sintética
@@ -90,7 +90,7 @@ Cada interação gera uma linha JSON no log da aplicação (sem texto de pergunt
  "uso_fallback": false, "latencia_ms": 83}
 ```
 
-O registro completo fica no SQLite (`var/auditoria.db`) e pode ser consultado pelo identificador:
+O registro completo fica no banco (arquivo SQLite `var/auditoria.db` na execução local, Postgres no deploy) e pode ser consultado pelo identificador:
 
 ```bash
 curl -H "X-Sessao: <sua sessão>" http://localhost:3000/api/interacoes/<trace_id>
@@ -130,7 +130,7 @@ python automacao/verificar_producao.py http://localhost:3000
 
 ## 5. Deploy
 
-A aplicação é publicada na **Vercel** como um único projeto com dois serviços, descritos em `vercel.json`:
+A aplicação está publicada na **Vercel**, em **https://genia-navy.vercel.app**, como um único projeto com dois serviços descritos em `vercel.json`:
 
 | Serviço | Origem | Como roda | Exposição |
 |---|---|---|---|
@@ -139,30 +139,52 @@ A aplicação é publicada na **Vercel** como um único projeto com dois serviç
 
 Os dois serviços são construídos e publicados juntos, na mesma versão. O navegador só fala com `web`; a rota `web/app/api/[...caminho]/route.ts` repassa as chamadas à API pelo endereço interno que a Vercel injeta em `API_URL`.
 
-### 5.1 Passo a passo
+O registro de auditoria fica em um **Postgres gerenciado (Neon)**, criado pelo Marketplace da Vercel, que define a variável `DATABASE_URL` no projeto.
 
-1. Na Vercel, importe o repositório do GitHub. Deixe o **Root Directory** na raiz (o `vercel.json` cuida do resto).
-2. Em *Settings → Environment Variables*, defina:
-   - `GENIA_SAL` — valor longo e aleatório, usado no pseudônimo das sessões;
-   - `GENIA_TOKEN_OPERADOR` — token para reexecutar o pipeline pela página de monitoramento;
-   - `GROQ_API_KEY` ou `GEMINI_API_KEY` — opcional; sem chave a aplicação funciona no modo extrativo.
-3. Faça o deploy.
-4. Rode `python automacao/verificar_producao.py https://<endereço na Vercel>`.
-5. No GitHub, crie a variável de repositório `GENIA_URL` com esse endereço, para ativar o monitoramento agendado.
-6. Coloque o endereço no README.
+### 5.1 Como foi feito
 
-### 5.2 O que muda em produção
+```bash
+vercel link --yes --project genia          # cria o projeto e reconhece os serviços do vercel.json
+vercel env add GENIA_SAL production,preview --sensitive
+vercel env add GENIA_TOKEN_OPERADOR production,preview
+vercel integration add neon --name genia-auditoria   # exige aceitar os termos do Neon no navegador
+vercel deploy --prod
+python automacao/verificar_producao.py https://genia-navy.vercel.app
+```
 
-- **O registro de auditoria é efêmero.** O contêiner da API é desligado após alguns minutos sem tráfego, e o arquivo SQLite vai junto: consentimentos e interações recomeçam do zero. As linhas JSON do log continuam disponíveis no painel de logs da Vercel. Para manter o registro, a tabela precisaria ir para um banco gerenciado (lacuna declarada em `docs/governanca.md`, seção 9).
-- **A primeira chamada depois de um período parado demora mais**, porque o contêiner precisa subir. Localmente a subida leva cerca de 6 segundos, graças ao cache de vetores gravado no build.
+Para usar um LLM em produção, acrescente `GROQ_API_KEY` ou `GEMINI_API_KEY` com `vercel env add` e refaça o deploy. Sem chave, a aplicação funciona no modo extrativo.
+
+O deploy é feito pela linha de comando. A integração automática com o GitHub não foi ligada porque o repositório pertence a outra conta; quem é dono do repositório pode conectá-lo com `vercel git connect`.
+
+### 5.2 Por que o registro foi para um banco gerenciado
+
+O primeiro deploy usava o arquivo SQLite dentro do contêiner da API. A verificação sintética falhou logo na primeira execução: a primeira pergunta foi respondida e a segunda recebeu erro 403. A Vercel tinha iniciado uma segunda instância da API, com um arquivo de registro vazio, e o aceite do termo estava na primeira.
+
+Com o registro no Postgres, todas as instâncias enxergam os mesmos dados. O módulo `app/auditoria.py` usa Postgres quando `DATABASE_URL` existe e SQLite caso contrário, com as mesmas consultas.
+
+### 5.3 Verificação em produção
+
+Medido em 9 de outubro de 2026, contra https://genia-navy.vercel.app:
+
+| Verificação | Resultado |
+|---|---|
+| Verificação sintética (`automacao/verificar_producao.py`), 3 execuções seguidas | Todas as etapas aprovadas |
+| 20 perguntas simultâneas da mesma sessão | 20 respostas com sucesso, 20 interações registradas, aceite preservado, mesmo com instâncias novas atendendo |
+| Primeira chamada com a API parada | Cerca de 8 a 10 segundos; as seguintes, cerca de 0,4 segundo por pergunta |
+| `/api/saude` | `status: ok`, ingestão com sucesso, `registro: postgres` |
+| Rota administrativa sem token de operador | Recusada (403) |
+
+### 5.4 O que muda em produção
+
+- **A primeira chamada depois de um período parado demora mais**, porque o contêiner da API precisa subir. O cache de vetores gravado no build mantém a ingestão em cerca de 2 segundos.
+- **O banco fica em outra região.** O Neon está em `us-east-1`. O que vai para lá é o conteúdo do registro de auditoria: pseudônimo da sessão, metadados e, só com autorização, o texto das perguntas (ver `docs/governanca.md`, seção 2.5).
 - **Memória:** a API usa cerca de 0,8 GB (medido localmente), dentro dos 2 GB do plano gratuito.
 
-### 5.3 Outra hospedagem
+### 5.5 Outra hospedagem
 
-O `Dockerfile` serve em qualquer plataforma de contêiner com pelo menos 1 GB de memória. Nesse caso, publique `web/` separadamente e defina no front-end `API_URL` (endereço da API) e, se a API exigir autenticação, `API_TOKEN`.
+O `Dockerfile` serve em qualquer plataforma de contêiner com pelo menos 1 GB de memória. Nesse caso, publique `web/` separadamente e defina no front-end `API_URL` (endereço da API) e, se a API exigir autenticação, `API_TOKEN`. Se a plataforma rodar mais de uma instância da API, defina também `DATABASE_URL`.
 
-### 5.4 O que ainda não foi verificado
+### 5.6 O que ainda não foi verificado
 
-O `vercel.json` e o `Dockerfile` foram escritos conforme a documentação da Vercel, mas **ainda não foram executados**: a máquina de desenvolvimento não tem Docker e o deploy depende da conta do grupo. O primeiro deploy deve ser acompanhado.
-
-O que foi verificado localmente: a API, o front-end em build de produção (`npm run build` e `npm run start`), o repasse de `/api`, os 45 testes, a avaliação e a verificação sintética.
+- O monitoramento agendado (`.github/workflows/monitoramento.yml`) ainda não rodou: ele só é ativado depois do merge na `main` e da criação da variável de repositório `GENIA_URL`.
+- O caminho com LLM real, em produção ou localmente: até aqui só o modo extrativo e um LLM simulado nos testes.
