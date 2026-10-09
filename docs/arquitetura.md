@@ -1,335 +1,139 @@
 # Arquitetura da Solução — GenIA
 
-## 1. Visão Geral
+Versão final (Sprint 4). A arquitetura da Sprint 2 — relatório em JSON, chunks, embeddings, ChromaDB e busca semântica — continua sendo o núcleo. Em volta dela entraram a geração por LLM, a orquestração multiagente, a validação das respostas, o registro de auditoria, a API e a interface web.
 
-O GenIA utiliza uma arquitetura baseada em **Retrieval-Augmented Generation (RAG)** para permitir consultas inteligentes sobre relatórios genéticos simulados.
-
-Nesta Sprint, o foco foi implementar a camada de inteligência responsável por recuperar informações relevantes a partir de um relatório estruturado em JSON e apresentar respostas fundamentadas no conteúdo recuperado.
-
-A solução combina:
-
-- Processamento de dados em JSON;
-- Segmentação textual em chunks;
-- Geração de embeddings;
-- Armazenamento em base vetorial;
-- Busca semântica;
-- Interface web para consulta.
-
----
-
-## 2. Fluxo Geral da Arquitetura
+## 1. Visão geral
 
 ```text
-Relatório Genético Simulado (JSON)
-        ↓
-Data Loader
-        ↓
-Chunking
-        ↓
-Embeddings
-        ↓
-ChromaDB
-        ↓
-Busca Semântica
-        ↓
-Resposta Formatada
-        ↓
-Interface Streamlit
-        ↓
-Usuário
+┌───────────────────────── Navegador (desktop e celular) ─────────────────────────┐
+│  Next.js + ReUI + Spell UI                                                       │
+│  Painel · Conversa · Monitoramento · Privacidade                                 │
+└──────────────────────────────────────┬───────────────────────────────────────────┘
+                                       │ /api/*  (repasse pelo servidor do front-end)
+┌──────────────────────────────────────▼───────────────────────────────────────────┐
+│  API FastAPI (app/api.py)                                                        │
+│  consentimento · limite de uso · token de operador                               │
+│                                                                                  │
+│  ┌──────────── Orquestração multiagente (app/agentes.py) ─────────────┐          │
+│  │  1 Triagem ──► 2 Recuperador ──► 3 Redator ──► 4 Auditor           │          │
+│  │  mascara dados   busca híbrida    LLM restrito   valida; reprova,  │          │
+│  │  classifica      decide cobertura ao contexto    pede reescrita ou │          │
+│  │  intenção                                        usa a reserva     │          │
+│  └────────┬──────────────┬───────────────┬──────────────┬─────────────┘          │
+│           │              │               │              │                        │
+│   intencao.py         rag.py          llm.py       validador.py                  │
+│   privacidade.py   (ChromaDB +     (Groq, Gemini,  (embeddings locais            │
+│   (scikit-learn)    TF-IDF)         Ollama)         + regras)                    │
+│                                                                                  │
+│  Registro de auditoria (app/auditoria.py) ── SQLite + log JSON                   │
+│  Pipeline de ingestão monitorado (app/pipeline.py)                               │
+└──────────────────────────────────────────────────────────────────────────────────┘
+        ▲                                                   ▲
+        │ data/relatorio_exemplo.json                       │ GitHub Actions
+        │ data/glossario.json · data/intencoes.json         │ CI · avaliação · monitoramento · deploy
 ```
 
----
+## 2. Fluxo de uma pergunta
 
-## 3. Componentes da Solução
+| # | Agente | O que faz | Pode encerrar o fluxo? |
+|---|---|---|---|
+| 1 | **Triagem** | Mascara dados pessoais. Aplica as regras de segurança (injeção de instruções, conselho médico). Classifica a intenção com scikit-learn | Sim: bloqueia injeção, recusa conselho médico, responde saudação |
+| 2 | **Recuperador** | Busca os três trechos mais relevantes e decide se o relatório cobre a pergunta | Sim: recusa quando não há cobertura |
+| 3 | **Redator** | Escreve a resposta com o LLM usando só os trechos recuperados, no nível de linguagem pedido | Sim: declara que o relatório não trata do tema |
+| 4 | **Auditor** | Roda as sete checagens. Reprovou: devolve os motivos ao Redator para uma reescrita. Reprovou de novo: usa a resposta de reserva | Sim: retém a resposta se nem a reserva passar |
 
-## 3.1 Relatório Genético Simulado
+Cada agente registra a decisão que tomou e o tempo gasto. Esse rastro volta junto com a resposta (explicabilidade) e é gravado no registro de auditoria (logging).
 
-Arquivo:
+Os papéis são separados de propósito: quem escreve não é quem aprova. O Redator é o único componente não determinístico; Triagem, Recuperador e Auditor produzem sempre o mesmo resultado para a mesma entrada.
 
-```text
-data/relatorio_exemplo.json
-```
+## 3. Componentes
 
-Esse arquivo representa um relatório genético fictício utilizado para testes acadêmicos.
+### 3.1 Dados — `app/data_loader.py`
 
-Ele contém informações simuladas sobre:
+Lê o relatório, valida a estrutura e gera os chunks. Cada chunk tem um identificador estável (por exemplo `saude:diabetes-tipo-2`), que é o que aparece nas citações. A validação acusa campo ausente, campo desconhecido e percentuais que não somam 100: foi o tipo de checagem que teria apanhado o defeito da Sprint 2, em que uma chave escrita com acento fazia os percentuais de ancestralidade sumirem sem erro algum.
 
-- Ancestralidade;
-- Predisposições genéticas;
-- Bem-estar;
-- Recomendações gerais;
-- Avisos de caráter informativo.
+A identificação do paciente não é indexada.
 
-O uso de dados simulados foi adotado para evitar exposição de informações reais e sensíveis de saúde.
+### 3.2 Recuperação — `app/rag.py`
 
----
+Busca híbrida:
 
-## 3.2 Data Loader
+- **Semântica:** embeddings multilíngues (`paraphrase-multilingual-MiniLM-L12-v2`, via ONNX) armazenados no ChromaDB. Cada chunk é indexado inteiro e também em passagens curtas, todas apontando para o chunk de origem.
+- **Lexical:** TF-IDF (scikit-learn) sobre o texto do chunk mais um glossário de termos leigos (`data/glossario.json`), para que "leite" encontre "intolerância à lactose".
 
-Arquivo:
+Pontuação final = similaridade semântica + 0,5 × similaridade lexical. Modelo e base ficam em cache no processo, e os vetores do relatório também em disco, o que reduz a subida da API de cerca de 14 para 2 segundos.
 
-```text
-app/data_loader.py
-```
+### 3.3 Intenção — `app/intencao.py`
 
-Responsabilidades:
+Duas camadas: regras para o que é segurança, e um classificador (regressão logística sobre os embeddings da pergunta) treinado com `data/intencoes.json` para o restante. O classificador só decide sozinho quando está muito seguro; nos outros casos a pergunta segue e é o Recuperador que decide.
 
-- Ler o arquivo JSON;
-- Carregar os dados do relatório;
-- Separar as informações relevantes;
-- Preparar os textos para o processo de chunking.
+### 3.4 Geração — `app/llm.py`, `app/prompts.py`
 
-Principais funções:
+Qualquer provedor com API compatível com a da OpenAI. Há predefinições para Groq e Gemini (nuvem) e Ollama (local). Temperatura 0 por padrão, para privilegiar consistência. Os prompts são versionados e a versão vai para o registro de cada resposta.
 
-```text
-carregar_relatorio()
-criar_chunks()
-```
+Sem provedor configurado, o sistema opera no **modo extrativo**: responde com frases do próprio relatório. É também a rede de segurança do Auditor e o modo usado na integração contínua, que assim não depende de chave nem de rede.
 
----
+### 3.5 Validação — `app/validador.py`
 
-## 3.3 Chunking
+Sete checagens, nenhuma delas com LLM: fundamentação por frase (similaridade com as passagens do contexto), números, citações, segurança, níveis, tamanho e legibilidade. Detalhes e resultados em `docs/avaliacao.md`.
 
-O chunking é o processo de dividir o relatório em blocos menores de texto.
+### 3.6 Auditoria e privacidade — `app/auditoria.py`, `app/privacidade.py`
 
-Essa etapa é necessária porque a busca semântica funciona melhor quando os dados estão organizados em trechos específicos.
+Registro estruturado em SQLite e em log JSON; pseudonimização da sessão; mascaramento de dados pessoais; exportação, exclusão e retenção. Política completa em `docs/governanca.md`.
 
-Exemplo de chunk:
+### 3.7 Pipeline de ingestão — `app/pipeline.py`
 
-```text
-Tema: Diabetes tipo 2
-Resultado: Predisposição genética moderada
-Explicação técnica: Foram identificadas variantes genéticas associadas ao metabolismo da glicose.
-Explicação simples: O relatório indica que a pessoa pode ter uma chance um pouco maior de desenvolver diabetes tipo 2.
-Recomendação: Manter alimentação equilibrada e acompanhamento médico preventivo.
-```
+Sete etapas monitoradas: carregar, validar estrutura, criar chunks, indexar, treinar o classificador, aquecer o validador e fazer uma busca de verificação. Falhou uma etapa, o pipeline para, registra a falha e devolve código de saída 1.
 
-Vantagens do chunking:
+### 3.8 API — `app/api.py`
 
-- Melhora a precisão da busca;
-- Facilita a recuperação de contexto;
-- Permite rastrear a fonte da resposta;
-- Evita uso desnecessário do relatório inteiro.
+| Rota | Função |
+|---|---|
+| `GET /api/saude` | Situação do serviço e da ingestão |
+| `GET /api/relatorio` | Dados do relatório para o painel, sem a identificação do paciente |
+| `GET`/`POST /api/consentimento` | Consulta e registra o aceite do termo |
+| `POST /api/perguntar` | Pergunta ao agente (exige consentimento) |
+| `GET /api/resumo` | Resumo automático (exige consentimento) |
+| `POST /api/feedback` | Avaliação útil / não útil |
+| `GET`/`DELETE /api/meus-dados` | Exportação e eliminação dos dados da sessão |
+| `GET /api/interacoes/{id}` | Registro de auditoria de uma interação da própria sessão |
+| `GET /api/monitoramento` | Indicadores, execuções e eventos |
+| `POST /api/pipeline/ingestao` | Reexecuta a ingestão (exige token de operador) |
+| `GET /api/avaliacao` | Resultados da última avaliação |
 
----
+### 3.9 Interface — `web/`
 
-## 3.4 Embeddings
+Next.js 16 com componentes de três fontes: shadcn/ui (base), **ReUI** (linha do tempo dos agentes, alertas, selos) e **Spell UI** (revelação do título, texto com brilho no carregamento, indicador de espera, botão de copiar). Quatro telas:
 
-Os chunks são transformados em vetores numéricos por meio de embeddings.
+| Tela | Conteúdo |
+|---|---|
+| Painel | Resumo automático, composição de ancestralidade, cartões de saúde e bem-estar com nível de risco, alternância entre linguagem simples e técnica |
+| Conversa | Perguntas ao agente; cada resposta com fontes, selo do Auditor e o painel "Como cheguei a esta resposta" |
+| Monitoramento | Situação do serviço, indicadores, execuções de pipeline etapa a etapa, últimas interações (só metadados), eventos |
+| Privacidade | Consentimento, exportação e exclusão dos dados, resumo da política, critérios de qualidade |
 
-Modelo utilizado:
+A interface é responsiva, tem navegação inferior no celular e um manifesto de aplicativo web, que permite instalá-la na tela inicial.
 
-```text
-all-MiniLM-L6-v2
-```
+O navegador nunca fala direto com a API: o servidor do front-end repassa as chamadas (`web/app/api/[...caminho]/route.ts`). Assim a API não precisa ser pública: no deploy, só o serviço do front-end a alcança.
 
-Biblioteca utilizada:
+## 4. Decisões de projeto
 
-```text
-sentence-transformers
-```
+| Decisão | Motivo |
+|---|---|
+| Manter ChromaDB e o relatório em JSON | Continuidade com as Sprints 1 e 2 |
+| Embeddings via ONNX (fastembed) em vez de PyTorch | Mesma família de modelos, sem os gigabytes do `torch`; viabiliza o deploy |
+| Embedding multilíngue | O original era treinado em inglês; a avaliação mostrou o ganho em português |
+| Busca híbrida com glossário | Usuários perguntam em linguagem leiga; o relatório está em linguagem técnica |
+| Auditor sem LLM | Parecer reproduzível e auditável; não dobra o custo nem a latência |
+| Regras para segurança, modelo para o resto | Um classificador treinado com poucos exemplos não é base para decisão de segurança |
+| Modo extrativo | Funciona sem chave, serve de reserva e torna a integração contínua determinística |
+| API em Python e interface em Next.js | Aproveita o ecossistema de IA do Python e os componentes ReUI/Spell UI do React |
+| SQLite para o registro | Sem serviço externo; suficiente para a demonstração |
 
-Os embeddings permitem que o sistema compare semanticamente a pergunta do usuário com os trechos do relatório.
+## 5. Limitações
 
-Exemplo conceitual:
-
-```text
-Pergunta: Tenho risco de diabetes?
-```
-
-Essa pergunta é convertida em vetor e comparada com os vetores dos chunks armazenados.
-
-O trecho semanticamente mais próximo é recuperado.
-
----
-
-## 3.5 Base Vetorial
-
-Banco vetorial utilizado:
-
-```text
-ChromaDB
-```
-
-A base vetorial armazena:
-
-- ID do chunk;
-- Texto do chunk;
-- Embedding;
-- Metadados.
-
-Exemplo de metadado:
-
-```json
-{
-  "fonte": "relatorio_exemplo.json",
-  "chunk": 2
-}
-```
-
-A presença dos metadados permite rastrear qual trecho foi utilizado para gerar a resposta.
-
----
-
-## 3.6 Busca Semântica
-
-A busca semântica ocorre quando o usuário realiza uma pergunta.
-
-Fluxo:
-
-```text
-Pergunta do usuário
-        ↓
-Geração de embedding da pergunta
-        ↓
-Comparação com embeddings dos chunks
-        ↓
-Recuperação do chunk mais relevante
-```
-
-Diferente de uma busca por palavra-chave, a busca semântica considera o significado da pergunta.
-
-Exemplo:
-
-```text
-"Pressão alta"
-```
-
-pode ser semanticamente relacionado a:
-
-```text
-"Hipertensão arterial"
-```
-
-mesmo que as palavras não sejam exatamente iguais.
-
----
-
-## 3.7 Motor RAG
-
-Arquivo principal:
-
-```text
-app/rag.py
-```
-
-Responsabilidades:
-
-- Carregar o modelo de embeddings;
-- Criar a base vetorial;
-- Consultar o ChromaDB;
-- Recuperar o contexto;
-- Montar uma resposta formatada;
-- Exibir fonte e chunk utilizado;
-- Incluir aviso de segurança médica.
-
-Funções principais:
-
-```text
-carregar_modelo()
-preparar_base_vetorial()
-buscar_contexto()
-gerar_resposta_formatada()
-```
-
----
-
-## 3.8 Interface Web
-
-Arquivo:
-
-```text
-app/interface.py
-```
-
-Tecnologia utilizada:
-
-```text
-Streamlit
-```
-
-A interface permite que o usuário:
-
-- Digite uma pergunta;
-- Consulte o relatório genético;
-- Visualize a resposta;
-- Leia o aviso de segurança;
-- Interaja de forma mais amigável com o sistema.
-
----
-
-## 4. Justificativa Técnica
-
-A arquitetura RAG foi escolhida porque permite que o sistema responda perguntas com base em um contexto recuperado de uma fonte específica.
-
-Isso reduz o risco de respostas inventadas, pois a resposta é fundamentada no trecho recuperado do relatório.
-
-Benefícios da arquitetura:
-
-- Maior rastreabilidade;
-- Menor risco de alucinação;
-- Respostas baseadas em fonte;
-- Facilidade de auditoria;
-- Adequação ao contexto sensível de saúde.
-
----
-
-## 5. Decisões de Projeto
-
-## 5.1 Uso de JSON
-
-O JSON foi escolhido por ser simples, estruturado e adequado para representar relatórios simulados nesta etapa do projeto.
-
-## 5.2 Uso de ChromaDB
-
-O ChromaDB foi escolhido por ser uma base vetorial simples de usar, compatível com Python e adequada para protótipos acadêmicos.
-
-## 5.3 Uso de Sentence Transformers
-
-O modelo `all-MiniLM-L6-v2` foi escolhido por ser leve, rápido e suficiente para demonstrar busca semântica.
-
-## 5.4 Uso de Streamlit
-
-O Streamlit foi escolhido por permitir a criação rápida de uma interface web funcional para demonstração.
-
----
-
-## 6. Limitações da Arquitetura Atual
-
-A versão atual possui algumas limitações:
-
-- Utiliza relatório simulado;
-- Não processa PDF diretamente;
-- Não realiza diagnóstico médico;
-- Não usa dados reais de pacientes;
-- Não possui autenticação;
-- Não possui armazenamento seguro de usuários;
-- Não substitui avaliação profissional.
-
-Essas limitações são aceitáveis para o escopo da Sprint 2.
-
----
-
-## 7. Possíveis Evoluções Futuras
-
-Melhorias futuras possíveis:
-
-- Upload de relatórios em PDF;
-- Extração automática de dados do PDF;
-- Persistência da base vetorial em disco;
-- Interface com histórico de conversa;
-- Autenticação de usuários;
-- Melhor tratamento de perguntas fora do escopo;
-- Integração com LLM para respostas mais naturais;
-- Camada mais robusta de governança e privacidade.
-
----
-
-## 8. Conclusão
-
-A arquitetura desenvolvida demonstra os principais fundamentos de um sistema RAG aplicado à consulta de relatórios genéticos.
-
-O GenIA recupera informações relevantes, utiliza busca semântica, apresenta respostas rastreáveis e mantém limites de segurança adequados ao contexto de saúde.
-
-A solução atende ao objetivo da Sprint 2 ao implementar a camada de inteligência do projeto com foco em clareza, rastreabilidade, governança e viabilidade técnica.
+- Um único relatório, simulado e igual para todos os visitantes; não há autenticação.
+- A API usa cerca de 0,8 GB de memória (modelo de embeddings e runtime ONNX), o que exclui hospedagens gratuitas de 512 MB.
+- O registro em SQLite é local à instância: em hospedagem com disco efêmero, ele recomeça a cada reinício.
+- Não há histórico de conversa: cada pergunta é respondida de forma independente (o que também reduz o dado enviado ao LLM).
+- Não há leitura de PDF: o relatório entra em JSON estruturado, como definido na Sprint 1.
