@@ -1,0 +1,14 @@
+.git
+.github
+.venv
+.env
+var
+web
+docs
+tests
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.cache
+automacao
+vercel.json

@@ -1,0 +1,59 @@
+name: Monitoramento de produção
+
+# Verificação sintética agendada da aplicação em deploy. Se falhar, abre (ou atualiza) uma
+# issue com o resultado; quando volta a passar, fecha a issue.
+# Requer a variável de repositório GENIA_URL com o endereço do front-end em produção.
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  verificar:
+    name: Verificação sintética
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: vars.GENIA_URL != ''
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TITULO: "Monitoramento: verificação de produção falhou"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verificar aplicação em produção
+        id: verificacao
+        # shell: bash liga o pipefail, para o passo falhar quando o script falha (e não o tee).
+        shell: bash
+        run: python automacao/verificar_producao.py "${{ vars.GENIA_URL }}" | tee resultado.txt
+
+      - name: Abrir ou atualizar issue de incidente
+        if: failure()
+        run: |
+          {
+            echo "A verificação agendada falhou em $(date -u +'%Y-%m-%d %H:%M UTC')."
+            echo
+            echo '```'
+            cat resultado.txt
+            echo '```'
+            echo
+            echo "Execução: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          } > corpo.md
+          numero=$(gh issue list --state open --search "in:title \"$TITULO\"" --json number --jq '.[0].number')
+          if [ -n "$numero" ]; then
+            gh issue comment "$numero" --body-file corpo.md
+          else
+            gh issue create --title "$TITULO" --body-file corpo.md
+          fi
+
+      - name: Fechar issue quando o serviço se recupera
+        if: success()
+        run: |
+          numero=$(gh issue list --state open --search "in:title \"$TITULO\"" --json number --jq '.[0].number')
+          if [ -n "$numero" ]; then
+            gh issue close "$numero" --comment "A verificação voltou a passar em $(date -u +'%Y-%m-%d %H:%M UTC')."
+          fi
