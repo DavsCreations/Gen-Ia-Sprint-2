@@ -26,7 +26,7 @@
 | Item | Onde |
 |---|---|
 | Aplicação em deploy | **https://genia-navy.vercel.app** (detalhes em [docs/operacao.md](docs/operacao.md#5-deploy)) |
-| Vídeo da Sprint 4 | _adicionar o link do YouTube (não listado) antes da entrega_ |
+| Vídeo da Sprint 4 | **https://youtu.be/AVY-3KvM7h8** |
 | Política de Governança de IA | [docs/governanca.md](docs/governanca.md) |
 | Avaliação do modelo e validação das respostas | [docs/avaliacao.md](docs/avaliacao.md) |
 | Monitoramento, automações e deploy | [docs/operacao.md](docs/operacao.md) |
