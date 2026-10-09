@@ -25,7 +25,7 @@ from app.rag import gerar_embeddings
 from app.texto import dividir_frases, extrair_numeros, normalizar, tokenizar
 
 # Calibrados com avaliacao/casos_validador.json — ver docs/avaliacao.md.
-LIMIAR_FRASE = 0.63
+LIMIAR_FRASE = 0.50
 MINIMO_FRASES_APOIADAS = 1.0
 MAX_PALAVRAS = 160
 MAX_PALAVRAS_RESUMO = 260
@@ -53,7 +53,26 @@ MEDICAMENTOS = {
 }
 
 # Radicais de palavras que qualificam o nível de um resultado.
-RADICAIS_NIVEL = ["alt", "elevad", "baix", "moderad", "lev", "aumentad", "reduzid", "lent", "rapid", "grave", "sever"]
+NIVEIS = {
+    "alto": r"\balt[oa]s?\b|\baltissim[oa]s?\b",
+    "elevado": r"\belevad[oa]s?\b",
+    "baixo": r"\bbaix[oa]s?\b|\bbaixissim[oa]s?\b",
+    "moderado": r"\bmoderad[oa]s?\b|\bmoderadamente\b",
+    "leve": r"\bleves?\b|\blevemente\b",
+    "aumentado": r"\baumentad[oa]s?\b",
+    "reduzido": r"\breduzid[oa]s?\b",
+    "lento": r"\blent[oa]s?\b|\blentamente\b",
+    "rapido": r"\brapid[oa]s?\b|\brapidamente\b",
+    "grave": r"\bgraves?\b",
+    "severo": r"\bsever[oa]s?\b",
+}
+
+# Uma afirmação de diagnóstico não conta quando vem negada ou como hipótese na mesma frase:
+# "não quer dizer que você terá a doença", "o teste não diz se você tem pressão alta".
+NEGACAO_ANTES = re.compile(
+    r"\bnao (quer dizer|significa|diz|indica|garante|afirma|confirma|determina|implica|mostra|aponta|"
+    r"da para (dizer|saber|afirmar)|e possivel (dizer|saber|afirmar))( que| se)?[^.!?]{0,30}$"
+)
 
 # Padrões aplicados ao texto normalizado (minúsculas, sem acentos).
 _DOENCAS = r"(doenca|diabetes|diabetic\w+|hipertens\w+|pressao alta|celiac\w+|intoleran\w+)"
@@ -73,6 +92,20 @@ PADROES_INSEGUROS = [
 
 def remover_citacoes(texto: str) -> str:
     return re.sub(r"\s*" + REGEX_CITACAO.pattern, "", texto)
+
+
+_ID_FONTE = r"[a-z-]+:[a-z0-9-]+"
+REGEX_CITACAO_MULTIPLA = re.compile(rf"\[({_ID_FONTE}(?:\s*[,;]\s*{_ID_FONTE})+)\]")
+
+
+def normalizar_citacoes(texto: str) -> str:
+    """
+    O LLM às vezes cita duas fontes no mesmo colchete: "[fonte-a, fonte-b]".
+    Separa em "[fonte-a][fonte-b]", o formato que a auditoria e a interface reconhecem.
+    """
+    return REGEX_CITACAO_MULTIPLA.sub(
+        lambda m: "".join(f"[{fonte.strip()}]" for fonte in re.split(r"[,;]", m.group(1))), texto
+    )
 
 
 def contar_silabas(palavra: str) -> int:
@@ -143,7 +176,13 @@ def checar_seguranca(resposta: str, contexto: str) -> Dict[str, Any]:
     texto = normalizar(remover_citacoes(resposta))
     contexto_normalizado = normalizar(contexto)
 
-    violacoes = [tipo for tipo, padrao in PADROES_INSEGUROS if padrao.search(texto)]
+    violacoes = []
+    for tipo, padrao in PADROES_INSEGUROS:
+        for ocorrencia in padrao.finditer(texto):
+            negada = tipo == "diagnostico" and NEGACAO_ANTES.search(texto[max(0, ocorrencia.start() - 70):ocorrencia.start()])
+            if not negada:
+                violacoes.append(tipo)
+                break
     medicamentos = sorted(
         m for m in MEDICAMENTOS
         if re.search(rf"\b{m}\w*\b", texto) and m not in contexto_normalizado
@@ -169,8 +208,8 @@ def checar_niveis(resposta: str, contexto: str) -> Dict[str, Any]:
     texto = normalizar(remover_citacoes(resposta))
     contexto_normalizado = normalizar(contexto)
     trocados = sorted(
-        radical for radical in RADICAIS_NIVEL
-        if re.search(rf"\b{radical}\w*", texto) and not re.search(rf"\b{radical}\w*", contexto_normalizado)
+        nivel for nivel, padrao in NIVEIS.items()
+        if re.search(padrao, texto) and not re.search(padrao, contexto_normalizado)
     )
     return _checagem(
         "niveis", not trocados, True, trocados,

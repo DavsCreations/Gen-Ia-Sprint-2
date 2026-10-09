@@ -194,3 +194,15 @@ def test_fallback_gera_evento_de_monitoramento(llm_simulado):
     eventos = auditoria.listar_eventos()
     assert eventos[0]["tipo"] == "fallback_llm"
     assert auditoria.metricas()["uso_fallback"] == 1
+
+
+def test_citacao_com_duas_fontes_no_mesmo_colchete_e_separada():
+    # O LLM real às vezes escreve "[fonte-a, fonte-b]"; a interface e a auditoria esperam "[fonte-a][fonte-b]".
+    from app.validador import normalizar_citacoes
+
+    texto = "Predisposição moderada [saude:diabetes-tipo-2, saude:hipertensao-arterial]. Sem mudança aqui [avisos:limites-do-relatorio]."
+
+    assert normalizar_citacoes(texto) == (
+        "Predisposição moderada [saude:diabetes-tipo-2][saude:hipertensao-arterial]. "
+        "Sem mudança aqui [avisos:limites-do-relatorio]."
+    )

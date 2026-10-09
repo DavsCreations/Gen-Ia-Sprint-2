@@ -13,6 +13,8 @@ from typing import Dict, List, Optional
 
 import httpx
 
+from app import config  # noqa: F401 — importar a configuração garante a leitura do .env
+
 PROVEDORES = {
     "groq": {
         "base_url": "https://api.groq.com/openai/v1",
@@ -23,6 +25,10 @@ PROVEDORES = {
         "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
         "variavel_chave": "GEMINI_API_KEY",
         "modelo": "gemini-3.8-flash",
+        # O modelo "pensa" antes de responder e esse raciocínio consome o limite de tokens: sem
+        # desligar, a resposta vinha cortada. A tarefa (reescrever trechos dados) dispensa raciocínio,
+        # e sem ele a resposta sai mais rápida e mais estável.
+        "raciocinio": "none",
     },
     "ollama": {
         "base_url": "http://localhost:11434/v1",
@@ -46,6 +52,7 @@ class ConfigLLM:
     api_key: str = ""
     temperatura: float = 0.0
     timeout: float = 30.0
+    raciocinio: str = ""
 
     @property
     def ativo(self) -> bool:
@@ -86,11 +93,12 @@ def config_atual() -> ConfigLLM:
         # Temperatura 0 por padrão: privilegia consistência entre respostas à mesma pergunta.
         temperatura=float(os.getenv("LLM_TEMPERATURE", "0")),
         timeout=float(os.getenv("LLM_TIMEOUT", "30")),
+        raciocinio=os.getenv("LLM_REASONING_EFFORT", predefinicao.get("raciocinio", "")),
     )
 
 
 def gerar(mensagens: List[Dict[str, str]], config: Optional[ConfigLLM] = None,
-          temperatura: Optional[float] = None, max_tokens: int = 500) -> str:
+          temperatura: Optional[float] = None, max_tokens: int = 2000) -> str:
     """
     Envia as mensagens ao LLM e devolve o texto gerado.
     Tenta novamente uma vez em caso de limite de uso (429) ou erro do servidor (5xx).
@@ -111,6 +119,8 @@ def gerar(mensagens: List[Dict[str, str]], config: Optional[ConfigLLM] = None,
         "temperature": config.temperatura if temperatura is None else temperatura,
         "max_tokens": max_tokens,
     }
+    if config.raciocinio:
+        corpo["reasoning_effort"] = config.raciocinio
 
     ultimo_erro = ""
     for tentativa in range(2):
@@ -124,9 +134,13 @@ def gerar(mensagens: List[Dict[str, str]], config: Optional[ConfigLLM] = None,
         else:
             if resposta.status_code == 200:
                 try:
-                    texto = resposta.json()["choices"][0]["message"]["content"]
-                except (KeyError, IndexError, TypeError, ValueError):
+                    escolha = resposta.json()["choices"][0]
+                    texto = escolha["message"].get("content")
+                except (KeyError, IndexError, TypeError, ValueError, AttributeError):
                     raise ErroLLM("resposta do provedor em formato inesperado")
+                if escolha.get("finish_reason") == "length":
+                    # Uma resposta cortada no meio não deve ser exibida nem auditada.
+                    raise ErroLLM("resposta cortada pelo limite de tokens")
                 if not texto or not texto.strip():
                     raise ErroLLM("o provedor devolveu uma resposta vazia")
                 return texto.strip()

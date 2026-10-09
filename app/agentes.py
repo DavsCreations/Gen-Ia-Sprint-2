@@ -190,7 +190,7 @@ def _redigir_e_auditar(rastro: Rastro, mensagens: List[Dict[str, str]], trechos:
             try:
                 texto = rastro.executar(
                     "Redator",
-                    lambda: llm.gerar(conversa, config, max_tokens=700 if resumo else 500),
+                    lambda: validador.normalizar_citacoes(llm.gerar(conversa, config)),
                     lambda t: {"decisao": f"resposta gerada pelo LLM (tentativa {tentativa})",
                                "modelo": config.modelo, "prompt_versao": prompts.PROMPT_VERSAO},
                 )
