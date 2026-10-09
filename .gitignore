@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Segredos e configuração local
+.env
+.env.local
+
+# Dados de execução (logs de auditoria, cache de modelos)
+var/
+.cache/
+
+# Front-end
+web/node_modules/
+web/.next/
+web/out/
+web/.vercel/
+web/next-env.d.ts
+web/tsconfig.tsbuildinfo
+
+# Sistema
+.DS_Store
+Thumbs.db

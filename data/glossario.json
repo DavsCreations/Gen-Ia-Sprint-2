@@ -1,0 +1,13 @@
+{
+  "_descricao": "Termos do dia a dia associados a cada tema do relatório. São indexados junto com o tema para que perguntas em linguagem leiga encontrem o trecho certo. Não acrescentam informação clínica: apenas vocabulário.",
+  "termos": {
+    "ancestralidade:visao-geral": ["origem", "origens", "antepassados", "descendência", "de onde vem minha família", "etnia", "raízes", "DNA"],
+    "saude:diabetes-tipo-2": ["açúcar no sangue", "glicose", "glicemia", "insulina", "diabético"],
+    "saude:hipertensao-arterial": ["pressão alta", "pressão arterial", "hipertenso", "sal", "sódio"],
+    "saude:doenca-celiaca": ["glúten", "trigo", "pão", "massa", "celíaco"],
+    "bem-estar:intolerancia-a-lactose": ["leite", "queijo", "laticínios", "iogurte", "derivados do leite", "digestão", "digerir"],
+    "bem-estar:metabolismo-da-cafeina": ["café", "cafezinho", "energético", "chá preto", "insônia", "sono"],
+    "bem-estar:resposta-ao-exercicio-fisico": ["treino", "academia", "musculação", "corrida", "esporte", "atividade física"],
+    "avisos:limites-do-relatorio": ["diagnóstico", "isso é confiável", "substitui médico", "vale como laudo", "limitações", "ficar doente", "certeza", "garantia"]
+  }
+}

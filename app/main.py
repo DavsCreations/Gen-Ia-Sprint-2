@@ -1,4 +1,4 @@
-from rag import gerar_resposta_formatada
+from app.agentes import responder
 
 
 def iniciar_chat():
@@ -13,10 +13,15 @@ def iniciar_chat():
             print("Chat encerrado.")
             break
 
-        resposta = gerar_resposta_formatada(pergunta)
+        if not pergunta.strip():
+            continue
+
+        resultado = responder(pergunta, sessao="terminal")
 
         print("\nGenIA:")
-        print(resposta)
+        print(resultado["resposta"])
+        print(f"\n{resultado['aviso']}")
+        print(f"\nComo cheguei a esta resposta: {resultado['explicacao']}")
         print("\n" + "=" * 60 + "\n")
 
 

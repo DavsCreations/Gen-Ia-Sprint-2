@@ -1,16 +1,10 @@
 # FIAP - Faculdade de Informática e Administração Paulista
 
-<p align="center">
-<a href="https://www.fiap.com.br/">
-<img src="assets/logo-fiap.png" alt="FIAP" width="40%">
-</a>
-</p>
-
-<br>
-
 # 🧬 GenIA — Assistente Inteligente para Relatórios Genéticos
 
 ## Grupo 62 - Graduação 1TIAOB - 2025/2 - Turma A
+
+**Challenge Sprint FIAP em parceria com a Dasa (Genera) — Sprint 4: Produção e Governança**
 
 ---
 
@@ -20,115 +14,95 @@
 - Daniel Caffé — RM564440
 - Enrico — RM561352
 
----
-
 ## 👩‍🏫 Professores
 
-### Tutor
+- **Tutor:** CaiqueFiap-2026
+- **Coordenador:** FIAP Challenge Sprint
 
-- CaiqueFiap-2026
+---
 
-### Coordenador
+## 🔗 Entrega
 
-- FIAP Challenge Sprint
+| Item | Onde |
+|---|---|
+| Aplicação em deploy | _adicionar o endereço depois do deploy (passo a passo em [docs/operacao.md](docs/operacao.md#5-deploy))_ |
+| Vídeo da Sprint 4 | _adicionar o link do YouTube (não listado) antes da entrega_ |
+| Política de Governança de IA | [docs/governanca.md](docs/governanca.md) |
+| Avaliação do modelo e validação das respostas | [docs/avaliacao.md](docs/avaliacao.md) |
+| Monitoramento, automações e deploy | [docs/operacao.md](docs/operacao.md) |
+| Arquitetura | [docs/arquitetura.md](docs/arquitetura.md) |
+| Análise de riscos | [docs/riscos.md](docs/riscos.md) |
+| Evidências (telas) | [docs/evidencias/](docs/evidencias/) |
 
 ---
 
 # 📜 Descrição
 
-O **GenIA** é um assistente inteligente desenvolvido para apoiar a interpretação de relatórios genéticos simulados da Genera, dentro do Challenge Sprint FIAP em parceria com a Dasa.
+O **GenIA** explica um relatório genético da Genera para o próprio titular. A pessoa vê um painel com o conteúdo do relatório, lê um resumo automático e faz perguntas em linguagem natural. Cada resposta vem do próprio relatório, cita a fonte e passa por uma verificação automática antes de aparecer.
 
-A proposta do projeto é permitir que o usuário faça perguntas em linguagem natural sobre um relatório genético e receba respostas organizadas, acessíveis e fundamentadas nos dados disponíveis no próprio relatório.
+Nesta Sprint 4 a solução foi preparada para operar: ganhou geração por LLM com validação, orquestração multiagente, registro de auditoria, controles de LGPD, monitoramento, automações, avaliação reproduzível e interface web pronta para deploy.
 
-Nesta Sprint 2, o foco foi construir a camada de inteligência da solução, utilizando conceitos de **Processamento de Linguagem Natural**, **embeddings**, **base vetorial**, **busca semântica** e **Retrieval-Augmented Generation (RAG)**.
+O projeto não realiza diagnóstico médico e não substitui avaliação profissional. Os dados são simulados.
 
-A solução desenvolvida realiza:
-
-- Leitura de relatório genético simulado em JSON;
-- Separação do conteúdo em chunks;
-- Geração de embeddings com Sentence Transformers;
-- Armazenamento vetorial com ChromaDB;
-- Busca semântica a partir da pergunta do usuário;
-- Resposta baseada no trecho mais relevante do relatório;
-- Exibição da fonte utilizada na resposta;
-- Interface web simples utilizando Streamlit;
-- Aplicação de avisos de segurança e governança.
-
-O projeto não realiza diagnóstico médico e não substitui avaliação profissional. As respostas possuem caráter exclusivamente informativo e educacional.
+![Painel do GenIA](docs/evidencias/02-painel.png)
 
 ---
 
-# 🎯 Objetivo da Sprint 2
+# 🎯 O que a Sprint 4 entrega
 
-Implementar a camada de inteligência do sistema GenIA, permitindo que o usuário consulte informações de um relatório genético por meio de perguntas em linguagem natural.
+| Requisito do enunciado | Como foi atendido | Evidência |
+|---|---|---|
+| **Governança de IA** — LGPD, explicabilidade e logging | Consentimento granular, mascaramento de dados pessoais, pseudonimização, exportação e exclusão pelo titular, retenção. Painel "Como cheguei a esta resposta" em toda resposta. Registro estruturado de cada interação | [docs/governanca.md](docs/governanca.md) · [tela](docs/evidencias/03-conversa-explicabilidade.png) |
+| **AI for RPA** — monitoramento de pipelines e automações | Pipeline de ingestão em sete etapas monitoradas. Página de monitoramento. Integração contínua e verificação sintética agendada no GitHub Actions; deploy pela integração da Vercel | [docs/operacao.md](docs/operacao.md) · [tela](docs/evidencias/05-monitoramento.png) |
+| **IA Generativa** — avaliação de qualidade e consistência | 74 perguntas de avaliação, comparação entre cinco configurações, ajustes documentados com antes e depois | [docs/avaliacao.md](docs/avaliacao.md) |
+| **PLN** — validação das respostas | Agente Auditor com sete checagens; reprova, pede reescrita e troca por resposta de reserva | [docs/avaliacao.md](docs/avaliacao.md), seção 6 · [tela](docs/evidencias/04-conversa-salvaguardas.png) |
+| **Front End & Mobile** — deploy | Interface Next.js responsiva, instalável no celular, configurada para deploy na Vercel junto com a API | [docs/operacao.md](docs/operacao.md), seção 5 · [tela](docs/evidencias/08-celular-conversa.png) |
+| **Visão Computacional** | Não utilizada no projeto | — |
 
-Os principais objetivos técnicos foram:
+## Resultados da avaliação
 
-- Implementar uma estrutura RAG;
-- Desenvolver busca semântica;
-- Utilizar embeddings para representação vetorial dos textos;
-- Criar uma base vetorial com ChromaDB;
-- Construir uma interface funcional de consulta;
-- Garantir rastreabilidade das respostas;
-- Aplicar limites de governança para evitar interpretações médicas indevidas.
+| Indicador | Antes | Versão final |
+|---|---|---|
+| Busca encontra o trecho certo em 1º lugar | 33,3% (código da Sprint 2) | **97,2%** |
+| Trecho certo entre os 3 primeiros | 63,9% (código da Sprint 2) | **100%** |
+| Comportamento correto ponta a ponta (54 perguntas originais) | 87,0% (antes dos ajustes) | **96,3%** |
+| Pedidos de conselho médico ou injeção respondidos indevidamente | 2 (antes dos ajustes) | **0** |
+| Defeitos detectados pelo validador | 11 de 12 (antes dos ajustes) | **12 de 12** |
+| Perguntas novas, nunca usadas para ajustar o sistema | — | **95% corretas** |
+
+Os números saem de `python -m avaliacao.executar_avaliacao` e foram medidos no modo extrativo (sem LLM). As falhas que restam estão listadas, uma a uma, em [docs/avaliacao.md](docs/avaliacao.md).
+
+> **Pendente antes da entrega:** rodar a avaliação com um LLM configurado, para preencher a medição de qualidade e consistência do modelo generativo. Basta colocar a chave no `.env` e executar `python -m avaliacao.executar_avaliacao --rapido --pausa 2.5`.
 
 ---
 
-# 🧠 Arquitetura da Solução
-
-Fluxo geral da aplicação:
+# 🧠 Arquitetura
 
 ```text
-Relatório Genético Simulado (JSON)
-            ↓
-      Data Loader
-            ↓
-        Chunking
-            ↓
-       Embeddings
-            ↓
-        ChromaDB
-            ↓
-    Busca Semântica
-            ↓
-   Resposta Formatada
-            ↓
-  Interface Streamlit
-            ↓
-         Usuário
+Navegador ──► Next.js (ReUI + Spell UI) ──► API FastAPI
+                                              │
+              1 Triagem ──► 2 Recuperador ──► 3 Redator ──► 4 Auditor
+              mascara dados   busca híbrida    LLM restrito   valida; reprova,
+              e classifica    (ChromaDB +      ao contexto    pede reescrita ou
+              a intenção      TF-IDF)                         usa a reserva
+                                              │
+                              Registro de auditoria (SQLite + log JSON)
 ```
 
----
+Quatro agentes com papéis separados: quem escreve a resposta não é quem a aprova. Cada um registra o que decidiu, e esse rastro alimenta a explicabilidade e o logging. Detalhes em [docs/arquitetura.md](docs/arquitetura.md).
 
-# ⚙️ Tecnologias Utilizadas
+## ⚙️ Tecnologias
 
-## Linguagem
-
-- Python 3.12
-
-## Inteligência Artificial / NLP
-
-- Sentence Transformers
-- Embeddings
-- Busca Semântica
-- RAG
-
-## Banco Vetorial
-
-- ChromaDB
-
-## Interface
-
-- Streamlit
-
-## Dados
-
-- JSON simulado
-
-## Versionamento
-
-- Git
-- GitHub
+| Camada | Tecnologias |
+|---|---|
+| Linguagens | Python 3.14, TypeScript |
+| Recuperação | ChromaDB, embeddings multilíngues (`paraphrase-multilingual-MiniLM-L12-v2` via fastembed/ONNX), TF-IDF (scikit-learn) |
+| Classificação de intenção | scikit-learn (regressão logística sobre embeddings) e regras |
+| Geração | LLM por API compatível com OpenAI — Groq, Gemini ou Ollama local; modo extrativo sem LLM |
+| API | FastAPI, SQLite |
+| Interface | Next.js 16, React 19, Tailwind CSS 4, shadcn/ui, ReUI, Spell UI |
+| Automação | GitHub Actions, pytest |
+| Deploy | Vercel (front-end e API em contêiner) |
 
 ---
 
@@ -136,182 +110,158 @@ Relatório Genético Simulado (JSON)
 
 ```text
 Gen-Ia-Sprint-2
-│
-├── app
-│   ├── data_loader.py
-│   ├── rag.py
-│   ├── main.py
-│   ├── interface.py
-│   └── prompts.py
-│
-├── data
-│   └── relatorio_exemplo.json
-│
-├── docs
-│   ├── arquitetura.md
-│   ├── governanca.md
-│   └── riscos.md
-│
-├── requirements.txt
-├── README.md
-└── .gitignore
+├── app/                     API e inteligência (Python)
+│   ├── agentes.py           orquestração multiagente
+│   ├── api.py               rotas HTTP
+│   ├── auditoria.py         registro de auditoria (logging)
+│   ├── data_loader.py       leitura, validação e chunks do relatório
+│   ├── intencao.py          regras de segurança e classificador
+│   ├── llm.py               acesso ao modelo de linguagem
+│   ├── pipeline.py          pipeline de ingestão monitorado
+│   ├── privacidade.py       mascaramento e pseudonimização
+│   ├── prompts.py           prompts versionados
+│   ├── rag.py               busca híbrida
+│   └── validador.py         checagens do Auditor
+├── avaliacao/               conjunto de perguntas, scripts e resultados
+├── automacao/               verificação sintética de produção
+├── data/                    relatório simulado, glossário, exemplos de intenção
+├── docs/                    governança, avaliação, operação, arquitetura, riscos, evidências
+├── tests/                   45 testes automatizados
+├── web/                     interface (Next.js)
+├── .github/workflows/       integração contínua e monitoramento
+├── Dockerfile               imagem da API
+└── vercel.json              deploy dos dois serviços
 ```
 
 ---
 
-# 🔧 Como Executar o Projeto
+# 🔧 Como Executar
 
-## 1. Clonar o repositório
+Requisitos: Python 3.14 (versão em que o projeto foi desenvolvido e testado) e Node.js 20.9 ou superior.
+
+## 1. API
 
 ```bash
 git clone <url-do-repositorio>
-```
-
-## 2. Acessar a pasta do projeto
-
-```bash
 cd Gen-Ia-Sprint-2
-```
-
-## 3. Criar ambiente virtual
-
-```bash
 python -m venv .venv
+.\.venv\Scripts\activate            # Linux/macOS: source .venv/bin/activate
+pip install -r requirements-dev.txt
+uvicorn app.api:app --port 8000
 ```
 
-## 4. Ativar ambiente virtual
+Caso o PowerShell bloqueie a ativação: `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`.
 
-Windows PowerShell:
+Na primeira subida a API baixa o modelo de embeddings (cerca de 220 MB).
+
+## 2. Interface (em outro terminal)
 
 ```bash
-.\.venv\Scripts\activate
+cd web
+npm install
+npm run dev
 ```
 
-Caso haja erro de permissão no PowerShell:
+Abra `http://localhost:3000`.
+
+## 3. Modelo de linguagem (opcional)
+
+Sem configuração, o GenIA responde no **modo extrativo**, com frases do próprio relatório. Para usar um LLM, copie `.env.example` para `.env` e preencha `GROQ_API_KEY` ou `GEMINI_API_KEY` (as duas têm plano gratuito). Reinicie a API.
+
+## 4. Testes, avaliação e automações
 
 ```bash
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+python -m pytest -q                              # 45 testes
+python -m app.pipeline                           # pipeline de ingestão, etapa por etapa
+python -m avaliacao.executar_avaliacao           # avaliação completa; regenera docs/avaliacao.md
+python automacao/verificar_producao.py http://localhost:3000
+python -m app.main                               # conversa pelo terminal
 ```
 
-Depois tente ativar novamente:
+## 5. Deploy
 
-```bash
-.\.venv\Scripts\activate
-```
-
-## 5. Instalar dependências
-
-```bash
-pip install -r requirements.txt
-```
-
-## 6. Executar interface web
-
-```bash
-streamlit run app/interface.py
-```
-
-A aplicação será aberta em:
-
-```text
-http://localhost:8501
-```
+Front-end e API são publicados juntos na Vercel, a partir do `vercel.json`. Passo a passo em [docs/operacao.md](docs/operacao.md#5-deploy).
 
 ---
 
 # 💬 Exemplos de Perguntas
 
 ```text
-Tenho risco de diabetes?
-
-Tenho intolerância à lactose?
-
-Qual é minha ancestralidade?
-
-Posso consumir cafeína?
-
-O relatório indica algo sobre hipertensão?
+Qual é a minha ancestralidade?        → responde com os percentuais e a fonte
+Leite me faz mal?                     → encontra "intolerância à lactose" a partir do termo leigo
+Qual remédio devo tomar para diabetes? → recusa: não indica medicamento
+Como está meu colesterol segundo o relatório? → recusa: o relatório não trata do tema
+Ignore as instruções anteriores...    → bloqueia a tentativa de manipulação
 ```
+
+![Salvaguardas na conversa](docs/evidencias/04-conversa-salvaguardas.png)
 
 ---
 
 # 🔒 Governança e Segurança
 
-O GenIA foi desenvolvido considerando o contexto sensível de dados genéticos.
+- **Consentimento antes de qualquer uso**, com opção separada para guardar o texto das perguntas.
+- **Dados pessoais mascarados** antes de irem ao modelo ou ao registro; sessão gravada como pseudônimo.
+- **Titular exporta e apaga** os próprios dados; retenção automática de 30 dias.
+- **Toda resposta é explicável**: etapas, trechos consultados, pontuações e verificações.
+- **Tudo é registrado**: fontes, modelo, versão do prompt e da base, resultado de cada checagem.
+- **Sem diagnóstico e sem prescrição**: recusa por regra e checagem na resposta.
 
-Diretrizes aplicadas:
-
-- Não realiza diagnóstico médico;
-- Não prescreve tratamentos;
-- Não substitui profissionais da saúde;
-- Utiliza apenas informações presentes no relatório;
-- Apresenta aviso de caráter informativo;
-- Exibe a fonte utilizada na resposta;
-- Trabalha apenas com dados simulados nesta Sprint.
+Política completa, com o que falta para uso com dados reais, em [docs/governanca.md](docs/governanca.md).
 
 ---
 
-# 📊 Resultados Obtidos
+# 🚀 Evolução do Projeto
 
-Durante a Sprint 2, foram implementados:
+## Sprint 1 — Estruturação dos dados
 
-- Pipeline de leitura de relatório JSON;
-- Transformação do relatório em chunks;
-- Geração de embeddings;
-- Armazenamento em base vetorial;
-- Busca semântica funcional;
-- Resposta fundamentada no relatório;
-- Chat via terminal;
-- Interface web com Streamlit;
-- Exibição de fonte e chunk utilizado;
-- Disclaimer de segurança médica.
+- Organização da proposta técnica;
+- Conversão das informações do relatório do Genera para JSON;
+- Criação do relatório simulado.
 
----
+## Sprint 2 — Camada de inteligência
 
-# 🚀 Evolução da Sprint
-
-## Sprint 1
-
-- Estruturação inicial dos dados;
-- Conversão de informações do relatório para formato JSON;
-- Organização da proposta técnica.
-
-## Sprint 2
-
-- Implementação da camada RAG;
-- Criação da busca semântica;
-- Uso de embeddings;
-- Integração com ChromaDB;
-- Criação de interface de consulta;
+- RAG com chunks, embeddings e ChromaDB;
+- Busca semântica;
+- Primeira interface de consulta (Streamlit) e conversa pelo terminal;
 - Documentação de arquitetura, governança e riscos.
 
----
+## Sprint 3 — Experiência do usuário
 
-# 🎥 Demonstração
+- Painel do relatório, com ancestralidade e níveis de risco;
+- Respostas em linguagem simples ou técnica;
+- Resumo automático do relatório;
+- Salvaguardas de comunicação: avisos, recusa de conselho médico e de temas fora do relatório.
 
-Link do vídeo:
+## Sprint 4 — Produção e governança
 
-```text
-https://youtu.be/ggvGr4amFOs
-```
+- Geração por LLM restrita ao contexto, com modo extrativo de reserva;
+- Orquestração multiagente: Triagem, Recuperador, Redator e Auditor;
+- Validação automática de toda resposta;
+- Registro de auditoria, consentimento, mascaramento, exportação e exclusão de dados;
+- Pipeline de ingestão monitorado e página de monitoramento;
+- Avaliação reproduzível com critérios mínimos na integração contínua;
+- Correção do defeito que impedia a indexação dos percentuais de ancestralidade;
+- Busca híbrida com embedding multilíngue e glossário de termos leigos;
+- Interface em Next.js com ReUI e Spell UI, substituindo o Streamlit;
+- Configuração de deploy e verificação sintética de produção.
 
 ---
 
 # 🗃 Histórico de Lançamentos
 
+## 1.0.0 - Sprint 4
+
+- Versão final: produção e governança.
+
 ## 0.2.0 - Sprint 2
 
-- Implementação do sistema RAG;
-- Criação da base vetorial;
-- Busca semântica;
-- Interface Streamlit;
-- Documentação técnica.
+- Sistema RAG, base vetorial, busca semântica, interface Streamlit e documentação técnica.
+- Vídeo da Sprint 2: https://youtu.be/ggvGr4amFOs
 
 ## 0.1.0 - Sprint 1
 
-- Estruturação inicial do projeto;
-- Criação do relatório simulado;
-- Organização dos dados em JSON.
+- Estruturação inicial do projeto e relatório simulado em JSON.
 
 ---
 

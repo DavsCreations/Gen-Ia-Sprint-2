@@ -1,0 +1,19 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "web": {
+      "root": "web",
+      "bindings": [
+        { "type": "service", "service": "api", "format": "url", "env": "API_URL" }
+      ]
+    },
+    "api": {
+      "root": ".",
+      "runtime": "container",
+      "entrypoint": "Dockerfile"
+    }
+  },
+  "rewrites": [
+    { "source": "/(.*)", "destination": { "service": "web" } }
+  ]
+}
