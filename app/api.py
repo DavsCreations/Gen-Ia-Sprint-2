@@ -106,6 +106,7 @@ def saude() -> Dict[str, Any]:
         "base_versao": preparar_base_vetorial().versao if pronto else None,
         "llm": {"provedor": modelo.provedor, "modelo": modelo.modelo if modelo.ativo else None},
         "prompt_versao": prompts.PROMPT_VERSAO,
+        "registro": "postgres" if auditoria.usa_postgres() else "sqlite",
     }
 
 

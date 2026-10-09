@@ -23,3 +23,9 @@ web/tsconfig.tsbuildinfo
 # Sistema
 .DS_Store
 Thumbs.db
+
+.vercel
+.env*
+!.env.example
+
+.env*

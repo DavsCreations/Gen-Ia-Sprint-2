@@ -19,6 +19,10 @@ CAMINHO_RELATORIO = Path(os.getenv("GENIA_RELATORIO", RAIZ / "data" / "relatorio
 DIR_EXECUCAO = Path(os.getenv("GENIA_DIR_EXECUCAO", RAIZ / "var"))
 CAMINHO_BANCO = DIR_EXECUCAO / "auditoria.db"
 
+# Banco gerenciado (Postgres) para o registro de auditoria. Definido no deploy, onde a API
+# roda em várias instâncias; sem ele, o registro fica no arquivo SQLite acima.
+URL_BANCO = os.getenv("DATABASE_URL", "")
+
 # Embeddings. O modelo multilíngue substituiu o all-MiniLM-L6-v2 (treinado em inglês)
 # após a avaliação da Sprint 4 — ver docs/avaliacao.md.
 MODELO_EMBEDDING = os.getenv(

@@ -8,6 +8,7 @@ def ambiente_isolado(tmp_path, monkeypatch):
     """Cada teste usa um banco de auditoria próprio e roda sem LLM, salvo quando simula um."""
     monkeypatch.setattr(config, "DIR_EXECUCAO", tmp_path)
     monkeypatch.setattr(config, "CAMINHO_BANCO", tmp_path / "auditoria.db")
+    monkeypatch.setattr(config, "URL_BANCO", "")
     monkeypatch.setenv("LLM_PROVIDER", "extrativo")
     agentes._resumos.clear()
 

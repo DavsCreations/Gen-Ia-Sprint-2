@@ -176,7 +176,8 @@ export default function PaginaMonitoramento() {
           <p>
             Versão {saude.versao} · no ar há {duracao(saude.ativo_ha_segundos)} · base {saude.base_versao ?? "indisponível"} ·
             prompt {saude.prompt_versao} · geração:{" "}
-            {saude.llm.modelo ? `${saude.llm.provedor} (${saude.llm.modelo})` : "extrativa, sem LLM configurado"}
+            {saude.llm.modelo ? `${saude.llm.provedor} (${saude.llm.modelo})` : "extrativa, sem LLM configurado"} · registro:{" "}
+            {saude.registro === "postgres" ? "banco gerenciado (persistente)" : "arquivo local"}
           </p>
           {saude.ingestao.erro && <p>Falha na ingestão: {saude.ingestao.erro}</p>}
         </AlertDescription>

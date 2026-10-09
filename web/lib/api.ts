@@ -112,6 +112,7 @@ export type Saude = {
   base_versao: string | null;
   llm: { provedor: string; modelo: string | null };
   prompt_versao: string;
+  registro: "postgres" | "sqlite";
 };
 
 export type EtapaPipeline = { etapa: string; status: string; detalhe: string; duracao_ms?: number };
