@@ -74,6 +74,8 @@ O GenIA funciona em três modos, e o fluxo de dados muda em cada um:
 | LLM local (Ollama) | Nada. O modelo roda na mesma máquina |
 | LLM em nuvem (Groq, Gemini) | A pergunta **já mascarada** e os trechos do relatório usados naquela resposta. Não vão: identificação do paciente, identificador de sessão, histórico de conversa |
 
+A versão publicada usa o modo em nuvem com o Gemini (Google), com o raciocínio do modelo desligado.
+
 No deploy, o registro de auditoria fica em um Postgres gerenciado (Neon, região `us-east-1`). O que é gravado lá é o que a seção 4 descreve: pseudônimo da sessão, metadados e, só com autorização, o texto das perguntas e respostas.
 
 No modo em nuvem e no registro do deploy há transferência internacional de dados (art. 33), porque os provedores processam fora do Brasil. Com dados simulados isso não gera risco ao titular. Com dados reais, seria obrigatório um contrato que garanta não retenção e não uso para treino — ou o modo local.
@@ -251,7 +253,9 @@ Esta entrega opera com um relatório fictício. Antes de qualquer dado real, ser
 - **A checagem de fundamentação usa similaridade semântica**, que não detecta toda contradição lógica. As checagens de números e de níveis cobrem os casos mais graves.
 - **Tema ausente com vocabulário do relatório** pode passar pela decisão de cobertura no modo extrativo; a avaliação lista os casos.
 - **O registro de auditoria do deploy fica fora do Brasil** (Neon, `us-east-1`). Na execução local ele é um arquivo SQLite na própria máquina.
-- **A qualidade do modelo generativo ainda precisa ser medida com um provedor configurado**; ver seção 8 de `docs/avaliacao.md`.
+- **O modelo de linguagem não é determinístico**, mesmo com temperatura 0: a mesma pergunta gera textos diferentes, embora com o mesmo sentido e as mesmas fontes (similaridade média de 0,948 na avaliação).
+- **O modelo pode acrescentar pontes de senso comum** que não estão no relatório (por exemplo, que pão contém glúten). São afirmações corretas e de baixo risco, mas escapam à regra de usar só o contexto.
+- **A calibração do validador tem margem estreita.** O limiar de apoio por frase (0,50) é o único valor que separa todos os casos de teste; ver `docs/avaliacao.md`, seção 6.
 
 ---
 

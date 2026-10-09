@@ -196,7 +196,7 @@ def secao_pipeline(atual: Dict[str, Any]) -> str:
         [[NOMES_TIPO[t], contagem[t], pct(v)] for t, v in p["acuracia_por_tipo"].items()] + [["**Total**", p["perguntas"], f"**{pct(p['acuracia_status'])}**"]],
     )
     texto += "\n\nPor partição: " + ", ".join(f"{nome} {pct(v)}" for nome, v in p["acuracia_por_particao"].items()) + "."
-    texto += f"\n\nLatência no modo `{atual['modo']}`: mediana {p['latencia_ms']['p50']} ms, percentil 95 {p['latencia_ms']['p95']} ms."
+    texto += f"\n\nLatência em `{rotulo(atual)}`: mediana {p['latencia_ms']['p50']} ms, percentil 95 {p['latencia_ms']['p95']} ms."
     falhas = [l for l in p["detalhe"] if not l["status_correto"]]
     if falhas:
         texto += "\n\n**Falhas restantes** (todas listadas, nenhuma omitida):\n\n"
@@ -204,9 +204,31 @@ def secao_pipeline(atual: Dict[str, Any]) -> str:
     return texto
 
 
+def rotulo(resultado: Dict[str, Any]) -> str:
+    """Nome legível de uma medição nas tabelas."""
+    cfg = resultado["configuracao"]
+    if resultado["modo"] == "extrativo" or "," in resultado["modo"]:
+        return resultado["modo"]
+    return f"{cfg['modelo']}, medição final (prompt {cfg['prompt_versao']}, limiar {num(cfg['limiar_frase'], 2)})"
+
+
 def flesch_mediano(resultado: Dict[str, Any]) -> Optional[float]:
     valores = [l["flesch"] for l in resultado["pipeline"]["detalhe"] if l["flesch"] is not None]
     return statistics.median(valores) if valores else None
+
+
+def secao_pipeline_llm(outros: List[Dict[str, Any]]) -> List[str]:
+    """Mesmo quadro da seção 7, para a medição final com o modelo de linguagem."""
+    finais = [r for r in outros if not r["modo"].startswith("gemini-3.8-flash, primeira")]
+    if not finais:
+        return []
+    final = finais[-1]
+    return [
+        f"### 7.1 Com o modelo de linguagem (`{rotulo(final)}`)",
+        "O mesmo conjunto de perguntas, agora com o Redator usando o LLM. As recusas marcadas como "
+        "`sem_informacao` são do próprio modelo, que concluiu que os trechos recebidos não tratam do tema.",
+        secao_pipeline(final),
+    ]
 
 
 def secao_geracao(resultados: List[Dict[str, Any]]) -> str:
@@ -214,12 +236,12 @@ def secao_geracao(resultados: List[Dict[str, Any]]) -> str:
     for r in resultados:
         g, c = r["pipeline"]["respondidas"], r["consistencia"]
         linhas.append([
-            f"`{r['modo']}`", g["total"], pct(g["fonte_correta"]), pct(g["fatos_presentes"]), num(g["apoio_medio"]),
+            f"`{rotulo(r)}`", g["total"], pct(g["fonte_correta"]), pct(g["fatos_presentes"]), num(g["apoio_medio"]),
             g["reprovadas_na_primeira_versao"], g["uso_fallback"], num(flesch_mediano(r), 1),
         ])
         rep = c["repeticao"]
         consistencia.append([
-            f"`{r['modo']}`", "—" if c["temperatura"] is None else num(c["temperatura"], 1),
+            f"`{rotulo(r)}`", "—" if c["temperatura"] is None else num(c["temperatura"], 1),
             f"{rep['total']} × {c['repeticoes_por_pergunta']}", num(rep["similaridade_media"]), num(rep["similaridade_minima"]),
             f"{rep['perguntas_com_resposta_identica']} de {rep['total']}", f"{rep['perguntas_com_mesmas_fontes']} de {rep['total']}",
             num(c["parafrases"]["similaridade_media"]),
@@ -293,6 +315,7 @@ def gerar() -> Path:
         "## 7. Comportamento ponta a ponta",
         "Cada pergunta passa pelo fluxo completo (Triagem → Recuperador → Redator → Auditor) e o desfecho é comparado ao esperado.",
         secao_pipeline(atual),
+        *secao_pipeline_llm(outros),
         "## 8. Qualidade e consistência da geração",
         secao_geracao([atual] + outros),
         "## 9. Ajustes realizados a partir da avaliação",
@@ -308,12 +331,31 @@ def gerar() -> Path:
         "| 7 | Temas de saúde ausentes eram respondidos com o trecho mais parecido | Exigência de âncora lexical além do limiar de pontuação | `app/agentes.py` |\n"
         "| 8 | O validador aprovou uma recomendação inventada e não distinguia \"alta\" de \"baixa\" predisposição | "
         "Limiar de apoio recalibrado, lista de substâncias ampliada e checagem de níveis | `app/validador.py` |\n"
-        "| 9 | A cada pergunta o modelo era recarregado e a base reindexada | Modelo e base em cache no processo | `app/rag.py` |\n\n"
-        "O resultado anterior aos ajustes 5 a 8 está preservado em `avaliacao/resultados/antes_dos_ajustes.json`.",
+        "| 9 | A cada pergunta o modelo era recarregado e a base reindexada | Modelo e base em cache no processo | `app/rag.py` |\n"
+        "| 10 | No primeiro teste com o LLM real (Gemini), o modelo gastava o limite de tokens \"raciocinando\" e a resposta vinha vazia ou cortada | "
+        "Raciocínio desligado para esse provedor; resposta cortada passa a ser tratada como falha e aciona a resposta de reserva | `app/llm.py` |\n"
+        "| 11 | Com texto do LLM real, o Auditor reprovou três respostas corretas: tratou \"não quer dizer que você terá a doença\" e "
+        "\"não diz se você tem pressão alta\" como diagnóstico, e \"alterações\" como o nível \"alta\" | Afirmação negada ou hipotética deixa de contar "
+        "como diagnóstico; níveis passam a ser reconhecidos por palavra inteira. As três respostas viraram casos de teste do validador | "
+        "`app/validador.py`, `avaliacao/casos_validador.json` |\n\n"
+        "| 12 | Na primeira medição com o LLM real, o Auditor reprovou a primeira versão de 14 das 32 respostas. Frases corretas, mas curtas ou com pronome "
+        "(\"isso significa que o seu organismo demora mais para eliminar essa substância\"), ficavam com apoio em torno de 0,55, abaixo do limiar de 0,63 | "
+        "Limiar de apoio recalibrado para 0,50, com respostas reais do modelo incluídas nos casos de teste. É o único valor que detecta todos os defeitos "
+        "sem reprovar respostas corretas; a margem é estreita | `app/validador.py` |\n"
+        "| 13 | O modelo recusou 4 perguntas legítimas feitas com palavras leigas, por causa de uma regra de recusa rígida demais | "
+        "Prompt v4: distingue tema ausente de vocabulário do dia a dia | `app/prompts.py` |\n"
+        "| 14 | Algumas respostas ainda vinham cortadas | Limite de tokens ampliado; o tamanho da resposta continua limitado pelo prompt e pelo Auditor | `app/llm.py` |\n\n"
+        "O resultado anterior aos ajustes 5 a 8 está preservado em `avaliacao/resultados/antes_dos_ajustes.json`. "
+        "Os ajustes 10 a 14 vieram do uso com um modelo real; a primeira medição com ele está em `avaliacao/resultados/antes_dos_ajustes_llm.json` "
+        "e aparece na primeira linha de LLM das tabelas da seção 8.",
         "## 10. Limitações conhecidas",
         "- **Conjunto pequeno e de autoria própria.** As perguntas foram escritas pela equipe, não coletadas de usuários reais.\n"
-        "- **Tema ausente com vocabulário do relatório.** \"Quanto custa o teste de ancestralidade?\" contém uma palavra do "
-        "relatório e passa pela regra de cobertura no modo extrativo. No modo com LLM, a instrução de recusar temas ausentes é uma segunda barreira.\n"
+        "- **Tema ausente com vocabulário do relatório.** No modo extrativo, \"Quanto custa o teste de ancestralidade?\" passa pela regra "
+        "de cobertura, porque contém uma palavra do relatório. Com o LLM essa pergunta é recusada pelo próprio modelo.\n"
+        "- **Pontes de senso comum.** O LLM às vezes liga a pergunta ao relatório com um fato que não está nele (por exemplo, que pão "
+        "contém glúten, ao falar de doença celíaca). São afirmações corretas e de baixo risco, mas escapam à regra de usar só o contexto.\n"
+        "- **O LLM não é determinístico** mesmo com temperatura 0: a mesma pergunta gera textos diferentes, embora com o mesmo sentido "
+        "e as mesmas fontes (seção 8).\n"
         "- **Fundamentação por similaridade.** A checagem usa embeddings, que não detectam toda contradição lógica; "
         "as checagens de números e de níveis cobrem os casos mais graves, não todos.\n"
         "- **Legibilidade.** O índice de Flesch usa contagem aproximada de sílabas e serve como indicador, não como bloqueio. "

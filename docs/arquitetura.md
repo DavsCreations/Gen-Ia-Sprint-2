@@ -69,7 +69,7 @@ Duas camadas: regras para o que é segurança, e um classificador (regressão lo
 
 ### 3.4 Geração — `app/llm.py`, `app/prompts.py`
 
-Qualquer provedor com API compatível com a da OpenAI. Há predefinições para Groq e Gemini (nuvem) e Ollama (local). Temperatura 0 por padrão, para privilegiar consistência. Os prompts são versionados e a versão vai para o registro de cada resposta.
+Qualquer provedor com API compatível com a da OpenAI. Há predefinições para Groq e Gemini (nuvem) e Ollama (local). A versão publicada usa o Gemini 3.8 Flash. Temperatura 0 por padrão, para privilegiar consistência, e raciocínio do modelo desligado: ele consumia o limite de tokens e a resposta vinha cortada. Os prompts são versionados e a versão vai para o registro de cada resposta.
 
 Sem provedor configurado, o sistema opera no **modo extrativo**: responde com frases do próprio relatório. É também a rede de segurança do Auditor e o modo usado na integração contínua, que assim não depende de chave nem de rede.
 

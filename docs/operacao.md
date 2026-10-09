@@ -152,7 +152,7 @@ vercel deploy --prod
 python automacao/verificar_producao.py https://genia-navy.vercel.app
 ```
 
-Para usar um LLM em produção, acrescente `GROQ_API_KEY` ou `GEMINI_API_KEY` com `vercel env add` e refaça o deploy. Sem chave, a aplicação funciona no modo extrativo.
+A chave do modelo de linguagem entra como segredo (`vercel env add GEMINI_API_KEY production,preview --sensitive`). A versão publicada usa o Gemini 3.8 Flash; sem chave, a aplicação funciona no modo extrativo.
 
 O deploy é feito pela linha de comando. A integração automática com o GitHub não foi ligada porque o repositório pertence a outra conta; quem é dono do repositório pode conectá-lo com `vercel git connect`.
 
@@ -173,6 +173,8 @@ Medido em 9 de outubro de 2026, contra https://genia-navy.vercel.app:
 | Primeira chamada com a API parada | Cerca de 8 a 10 segundos; as seguintes, cerca de 0,4 segundo por pergunta |
 | `/api/saude` | `status: ok`, ingestão com sucesso, `registro: postgres` |
 | Rota administrativa sem token de operador | Recusada (403) |
+| Geração com o modelo real (`/api/saude`: `provedor: gemini`) | Respostas e resumo escritos pelo Gemini e aprovados pelo Auditor; cerca de 2 a 3 segundos por resposta |
+| Fluxo completo das telas em navegador automatizado, em produção | Sem erros no console; sem rolagem horizontal no celular |
 
 ### 5.4 O que muda em produção
 
@@ -187,4 +189,4 @@ O `Dockerfile` serve em qualquer plataforma de contêiner com pelo menos 1 GB de
 ### 5.6 O que ainda não foi verificado
 
 - O monitoramento agendado (`.github/workflows/monitoramento.yml`) ainda não rodou: ele só é ativado depois do merge na `main` e da criação da variável de repositório `GENIA_URL`.
-- O caminho com LLM real, em produção ou localmente: até aqui só o modo extrativo e um LLM simulado nos testes.
+- O comportamento sob o limite de uso do plano gratuito do Gemini: se o provedor recusar por excesso de chamadas, a resposta cai na reserva extrativa (caminho coberto por teste), mas isso não foi provocado em produção.

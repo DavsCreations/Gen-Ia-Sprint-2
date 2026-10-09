@@ -107,25 +107,36 @@ Em qualquer resposta, clique em **"Como cheguei a esta resposta"** para ver as e
 |---|---|---|
 | **Governança de IA** — LGPD, explicabilidade e logging | Consentimento granular, mascaramento de dados pessoais, pseudonimização, exportação e exclusão pelo titular, retenção. Painel "Como cheguei a esta resposta" em toda resposta. Registro estruturado de cada interação | [docs/governanca.md](docs/governanca.md) · [tela](docs/evidencias/03-conversa-explicabilidade.png) |
 | **AI for RPA** — monitoramento de pipelines e automações | Pipeline de ingestão em sete etapas monitoradas. Página de monitoramento. Integração contínua e verificação sintética agendada no GitHub Actions; deploy pela integração da Vercel | [docs/operacao.md](docs/operacao.md) · [tela](docs/evidencias/05-monitoramento.png) |
-| **IA Generativa** — avaliação de qualidade e consistência | 74 perguntas de avaliação, comparação entre cinco configurações, ajustes documentados com antes e depois | [docs/avaliacao.md](docs/avaliacao.md) |
+| **IA Generativa** — avaliação de qualidade e consistência | 74 perguntas de avaliação, comparação entre cinco configurações de busca, medição do modelo real (Gemini) antes e depois de 14 ajustes documentados | [docs/avaliacao.md](docs/avaliacao.md) |
 | **PLN** — validação das respostas | Agente Auditor com sete checagens; reprova, pede reescrita e troca por resposta de reserva | [docs/avaliacao.md](docs/avaliacao.md), seção 6 · [tela](docs/evidencias/04-conversa-salvaguardas.png) |
 | **Front End & Mobile** — deploy | Interface Next.js responsiva e instalável no celular, publicada na Vercel junto com a API: https://genia-navy.vercel.app | [docs/operacao.md](docs/operacao.md), seção 5 · [tela](docs/evidencias/08-celular-conversa.png) |
 | **Visão Computacional** | Não utilizada no projeto | — |
 
 ## Resultados da avaliação
 
+**Busca e salvaguardas** (medidas no modo extrativo, que não depende do LLM):
+
 | Indicador | Antes | Versão final |
 |---|---|---|
 | Busca encontra o trecho certo em 1º lugar | 33,3% (código da Sprint 2) | **97,2%** |
 | Trecho certo entre os 3 primeiros | 63,9% (código da Sprint 2) | **100%** |
-| Comportamento correto ponta a ponta (54 perguntas originais) | 87,0% (antes dos ajustes) | **96,3%** |
 | Pedidos de conselho médico ou injeção respondidos indevidamente | 2 (antes dos ajustes) | **0** |
-| Defeitos detectados pelo validador | 11 de 12 (antes dos ajustes) | **12 de 12** |
-| Perguntas novas, nunca usadas para ajustar o sistema | — | **95% corretas** |
+| Defeitos detectados pelo validador | 11 de 12 (antes dos ajustes) | **13 de 13**, sem reprovar nenhuma das 12 respostas corretas |
 
-Os números saem de `python -m avaliacao.executar_avaliacao` e foram medidos no modo extrativo (sem LLM). As falhas que restam estão listadas, uma a uma, em [docs/avaliacao.md](docs/avaliacao.md).
+**Modelo generativo** (Gemini 3.8 Flash, 74 perguntas):
 
-> **Pendente antes da entrega:** rodar a avaliação com um LLM configurado, para preencher a medição de qualidade e consistência do modelo generativo. Basta colocar a chave no `.env` e executar `python -m avaliacao.executar_avaliacao --rapido --pausa 2.5`.
+| Indicador | Primeira medição | Depois dos ajustes |
+|---|---|---|
+| Comportamento correto ponta a ponta | 93,2% | **97,3%** |
+| Perguntas novas, nunca usadas para ajustar o sistema | 90,0% | **100%** |
+| Respostas reprovadas pelo Auditor na primeira versão | 14 de 32 | **2 de 35** |
+| Respostas trocadas pela reserva extrativa | 4 | **0** |
+| Perguntas legítimas recusadas pelo modelo | 4 | **1** |
+| Fonte correta nas respostas dadas | 100% | **100%** |
+| Facilidade de leitura (Flesch, mediana; extrativo = 24,7) | 35,1 | **41,5** |
+| Consistência: similaridade entre repetições da mesma pergunta | 0,945 | **0,948**, sempre com as mesmas fontes |
+
+Os números saem de `python -m avaliacao.executar_avaliacao`. A primeira medição com o modelo real revelou problemas no validador e no prompt, que foram corrigidos; o antes e depois, os ajustes e as falhas que restam estão em [docs/avaliacao.md](docs/avaliacao.md).
 
 ---
 
@@ -151,7 +162,7 @@ Quatro agentes com papéis separados: quem escreve a resposta não é quem a apr
 | Linguagens | Python 3.14, TypeScript |
 | Recuperação | ChromaDB, embeddings multilíngues (`paraphrase-multilingual-MiniLM-L12-v2` via fastembed/ONNX), TF-IDF (scikit-learn) |
 | Classificação de intenção | scikit-learn (regressão logística sobre embeddings) e regras |
-| Geração | LLM por API compatível com OpenAI — Groq, Gemini ou Ollama local; modo extrativo sem LLM |
+| Geração | LLM por API compatível com OpenAI — em produção, Gemini 3.8 Flash; também Groq ou Ollama local; modo extrativo sem LLM |
 | API | FastAPI; registro de auditoria em SQLite (local) ou Postgres gerenciado (deploy) |
 | Interface | Next.js 16, React 19, Tailwind CSS 4, shadcn/ui, ReUI, Spell UI |
 | Automação | GitHub Actions, pytest |
@@ -179,7 +190,7 @@ Gen-Ia-Sprint-2
 ├── automacao/               verificação sintética de produção
 ├── data/                    relatório simulado, glossário, exemplos de intenção
 ├── docs/                    governança, avaliação, operação, arquitetura, riscos, evidências
-├── tests/                   46 testes automatizados
+├── tests/                   47 testes automatizados
 ├── web/                     interface (Next.js)
 ├── .github/workflows/       integração contínua e monitoramento
 ├── Dockerfile               imagem da API
@@ -219,12 +230,12 @@ Abra `http://localhost:3000`.
 
 ## 3. Modelo de linguagem (opcional)
 
-Sem configuração, o GenIA responde no **modo extrativo**, com frases do próprio relatório. Para usar um LLM, copie `.env.example` para `.env` e preencha `GROQ_API_KEY` ou `GEMINI_API_KEY` (as duas têm plano gratuito). Reinicie a API.
+A versão publicada usa o Gemini. Localmente, sem configuração, o GenIA responde no **modo extrativo**, com frases do próprio relatório. Para usar um LLM, copie `.env.example` para `.env` e preencha `GROQ_API_KEY` ou `GEMINI_API_KEY` (as duas têm plano gratuito). Reinicie a API.
 
 ## 4. Testes, avaliação e automações
 
 ```bash
-python -m pytest -q                              # 46 testes
+python -m pytest -q                              # 47 testes
 python -m app.pipeline                           # pipeline de ingestão, etapa por etapa
 python -m avaliacao.executar_avaliacao           # avaliação completa; regenera docs/avaliacao.md
 python automacao/verificar_producao.py http://localhost:3000
