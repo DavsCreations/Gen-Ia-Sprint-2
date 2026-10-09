@@ -74,7 +74,7 @@ O GenIA funciona em três modos, e o fluxo de dados muda em cada um:
 | LLM local (Ollama) | Nada. O modelo roda na mesma máquina |
 | LLM em nuvem (Groq, Gemini) | A pergunta **já mascarada** e os trechos do relatório usados naquela resposta. Não vão: identificação do paciente, identificador de sessão, histórico de conversa |
 
-A versão publicada usa o modo em nuvem com o Gemini (Google), com o raciocínio do modelo desligado.
+A versão publicada usa o modo em nuvem com o Gemini (Google), com o raciocínio do modelo desligado. No plano gratuito do Gemini, o Google pode usar o conteúdo enviado para melhorar seus produtos: com dados simulados isso não afeta nenhum titular, mas com dados reais seria obrigatório o plano pago, com contrato, ou um modelo local.
 
 No deploy, o registro de auditoria fica em um Postgres gerenciado (Neon, região `us-east-1`). O que é gravado lá é o que a seção 4 descreve: pseudônimo da sessão, metadados e, só com autorização, o texto das perguntas e respostas.
 

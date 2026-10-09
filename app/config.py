@@ -51,6 +51,10 @@ SEMANTICO_SEM_ANCORA = float(os.getenv("GENIA_SEMANTICO_SEM_ANCORA", "0.65"))
 # Retenção dos registros de auditoria, em dias (política de governança, seção de logging).
 RETENCAO_DIAS = int(os.getenv("GENIA_RETENCAO_DIAS", "30"))
 
+# Teto de respostas e resumos gerados pelo LLM por dia (UTC), somando todas as sessões.
+# Acima dele o sistema responde no modo extrativo. Limita o custo da chave; 0 desliga o teto.
+LIMITE_LLM_DIA = int(os.getenv("GENIA_LIMITE_LLM_DIA", "50"))
+
 # Perguntas por minuto permitidas a cada sessão.
 LIMITE_POR_MINUTO = int(os.getenv("GENIA_LIMITE_POR_MINUTO", "20"))
 

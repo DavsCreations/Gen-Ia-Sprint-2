@@ -181,6 +181,7 @@ Medido em 9 de outubro de 2026, contra https://genia-navy.vercel.app:
 - **A primeira chamada depois de um período parado demora mais**, porque o contêiner da API precisa subir. O cache de vetores gravado no build mantém a ingestão em cerca de 2 segundos.
 - **O banco fica em outra região.** O Neon está em `us-east-1`. O que vai para lá é o conteúdo do registro de auditoria: pseudônimo da sessão, metadados e, só com autorização, o texto das perguntas (ver `docs/governanca.md`, seção 2.5).
 - **Memória:** a API usa cerca de 0,8 GB (medido localmente), dentro dos 2 GB do plano gratuito.
+- **Teto de uso do LLM.** A aplicação gera no máximo 50 respostas ou resumos por dia com o modelo de linguagem, somando todas as sessões (variável `GENIA_LIMITE_LLM_DIA`). Acima disso responde no modo extrativo até o dia seguinte. O teto existe para limitar o custo da chave, já que o endereço é público; o limite de 20 perguntas por minuto por sessão, sozinho, não impediria alguém de abrir várias sessões.
 
 ### 5.5 Outra hospedagem
 

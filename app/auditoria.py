@@ -334,6 +334,16 @@ def listar_eventos(limite: int = 30) -> List[Dict[str, Any]]:
     return [{**dict(linha), "detalhe": json.loads(linha["detalhe"])} for linha in linhas]
 
 
+def geracoes_llm_hoje() -> int:
+    """Quantas respostas e resumos foram escritos pelo LLM hoje (UTC), em todas as sessões."""
+    hoje = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    with conectar() as conexao:
+        linha = conexao.execute(
+            "SELECT COUNT(*) AS total FROM interacoes WHERE criado_em >= ? AND modelo IS NOT NULL", (hoje,)
+        ).fetchone()
+    return int(linha["total"])
+
+
 def metricas() -> Dict[str, Any]:
     """Indicadores operacionais calculados a partir do registro de auditoria."""
     with conectar() as conexao:

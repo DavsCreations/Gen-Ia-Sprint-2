@@ -190,7 +190,7 @@ Gen-Ia-Sprint-2
 ├── automacao/               verificação sintética de produção
 ├── data/                    relatório simulado, glossário, exemplos de intenção
 ├── docs/                    governança, avaliação, operação, arquitetura, riscos, evidências
-├── tests/                   47 testes automatizados
+├── tests/                   48 testes automatizados
 ├── web/                     interface (Next.js)
 ├── .github/workflows/       integração contínua e monitoramento
 ├── Dockerfile               imagem da API
@@ -235,7 +235,7 @@ A versão publicada usa o Gemini. Localmente, sem configuração, o GenIA respon
 ## 4. Testes, avaliação e automações
 
 ```bash
-python -m pytest -q                              # 47 testes
+python -m pytest -q                              # 48 testes
 python -m app.pipeline                           # pipeline de ingestão, etapa por etapa
 python -m avaliacao.executar_avaliacao           # avaliação completa; regenera docs/avaliacao.md
 python automacao/verificar_producao.py http://localhost:3000

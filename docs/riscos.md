@@ -35,7 +35,7 @@ Probabilidade e impacto são estimativas da equipe, considerando os controles em
 | 15 | **Relatório malformado** indexado em silêncio | Validação de estrutura no pipeline; a ingestão para e registra a falha | `test_pipeline_registra_falha_quando_o_relatorio_e_invalido` | Baixo |
 | 16 | **Regressão de qualidade** após uma mudança | Testes e avaliação com critérios mínimos na integração contínua | `.github/workflows/ci.yml` | Baixo |
 | 17 | **Serviço fora do ar sem ninguém notar** | Verificação sintética agendada que abre uma issue | `.github/workflows/monitoramento.yml`, `automacao/verificar_producao.py` | Médio: intervalo de 6 horas entre verificações |
-| 18 | **Abuso da API** consome a cota do LLM | Limite de perguntas por sessão; API acessível só pelo front-end | `test_limite_de_perguntas_por_minuto` | Médio: o limite é por sessão, e uma sessão nova é fácil de criar |
+| 18 | **Abuso da API** consome a cota do LLM | Limite de perguntas por sessão; API acessível só pelo front-end | `test_limite_de_perguntas_por_minuto` | Baixo para o custo: além do limite por sessão, há um teto diário de 50 gerações com o LLM somando todas as sessões (`test_teto_diario_do_llm_leva_ao_modo_extrativo`). Atingido o teto, o serviço continua no modo extrativo |
 | 19 | **Perda ou divergência do registro** quando a API roda em várias instâncias | No deploy o registro fica em Postgres gerenciado, compartilhado entre as instâncias; cada registro também sai no log da aplicação | 20 perguntas simultâneas em produção: 20 registradas e aceite preservado (`docs/operacao.md`, seção 5.3) | Baixo. O banco passa a ser um ponto único de falha: se cair, a API recusa as perguntas |
 
 ## 4. Riscos que esta entrega não trata
